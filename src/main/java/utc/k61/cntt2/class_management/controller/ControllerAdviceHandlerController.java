@@ -1,7 +1,6 @@
 package utc.k61.cntt2.class_management.controller;
 
 import lombok.extern.log4j.Log4j2;
-import org.apache.http.auth.AuthenticationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -14,7 +13,7 @@ import javax.servlet.http.HttpServletRequest;
 
 @ControllerAdvice
 @Log4j2
-public class ExceptionHandlerController extends ResponseEntityExceptionHandler {
+public class ControllerAdviceHandlerController extends ResponseEntityExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorJson> handleException(Exception ex, HttpServletRequest request) {
         String requestUri = request.getRequestURI();

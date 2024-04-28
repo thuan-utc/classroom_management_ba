@@ -14,6 +14,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import utc.k61.cntt2.class_management.security.CustomerUserDetailService;
+import utc.k61.cntt2.class_management.security.JwtAuthenticationEntryPoint;
 import utc.k61.cntt2.class_management.security.JwtTokenFilter;
 
 @Configuration
@@ -22,6 +23,9 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
     private final CustomerUserDetailService customerUserDetailService;
     private final JwtTokenFilter jwtTokenFilter;
+
+    @Autowired
+    private JwtAuthenticationEntryPoint unauthorizedHandler;
 
     @Autowired
     public SecurityConfig(CustomerUserDetailService customerUserDetailService,
@@ -40,11 +44,17 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     @Override
     protected void configure(HttpSecurity http) throws Exception {
         http
-                .csrf().disable()
-                .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS).and()
+                .cors()
+                .and()
+                .csrf()
+                .disable()
+                .exceptionHandling()
+                .authenticationEntryPoint(unauthorizedHandler)
+                .and()
+                .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                .and()
                 .authorizeRequests()
                 .antMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
-                .antMatchers("/login", "/token").permitAll()
                 .antMatchers("/api/auth/**").permitAll()
                 .anyRequest().authenticated();
 

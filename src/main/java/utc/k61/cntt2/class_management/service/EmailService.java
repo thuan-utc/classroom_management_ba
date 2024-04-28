@@ -51,7 +51,7 @@ public class EmailService {
     }
 
 //    @PostConstruct
-//    public void testSendEmail() {
-//        sendEmail("ducthuan2002it@gmail.com", "Test send email using SendGrid", "This is test email from thuansl99@gmail.com");
-//    }
+    public void testSendEmail() {
+        sendEmail("thuansl99@gmail.com", "Test send email using SendGrid", "This is test email from thuansl99@gmail.com");
+    }
 }

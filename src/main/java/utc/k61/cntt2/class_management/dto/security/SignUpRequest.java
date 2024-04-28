@@ -27,7 +27,7 @@ public class SignUpRequest {
     @Email
     private String email;
 
-    @NotBlank
+    @NotBlank(message = "password length is less then 6!")
     @Size(min = 6, max = 20)
     private String password;
 }

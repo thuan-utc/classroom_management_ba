@@ -42,12 +42,12 @@ public class AuthController {
         this.userService = userService;
     }
 
-    @PostMapping("/signin")
+    @PostMapping("/login")
     public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
 
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
-                        loginRequest.getUserName(),
+                        loginRequest.getUsername(),
                         loginRequest.getPassword()
                 )
         );

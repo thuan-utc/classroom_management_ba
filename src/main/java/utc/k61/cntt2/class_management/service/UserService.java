@@ -2,12 +2,10 @@ package utc.k61.cntt2.class_management.service;
 
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import utc.k61.cntt2.class_management.domain.Role;
-import utc.k61.cntt2.class_management.domain.RoleName;
+import utc.k61.cntt2.class_management.enumeration.RoleName;
 import utc.k61.cntt2.class_management.domain.User;
 import utc.k61.cntt2.class_management.dto.security.SignUpRequest;
 import utc.k61.cntt2.class_management.exception.BadRequestException;
@@ -36,7 +34,7 @@ public class UserService {
 
     public User createNewUser(SignUpRequest signUpRequest) {
         if(userRepository.existsByUsername(signUpRequest.getUsername())) {
-            String errorMessage = String.format("UserName %s already in use", signUpRequest.getUsername());
+            String errorMessage = String.format("Username %s already in use", signUpRequest.getUsername());
             throw new BadRequestException(errorMessage);
         }
 
@@ -45,7 +43,7 @@ public class UserService {
             throw new BadRequestException(errorMessage);
         }
 
-        User user = new User(signUpRequest.getName(), signUpRequest.getUsername(),
+        User user = new User(signUpRequest.getUsername(),
                 signUpRequest.getEmail(), signUpRequest.getPassword());
 
         user.setPassword(passwordEncoder.encode(user.getPassword()));
@@ -53,7 +51,7 @@ public class UserService {
         Role userRole = roleRepository.findByName(RoleName.ROLE_USER)
                 .orElseThrow(() -> new BusinessException("User Role not set."));
 
-        user.setRoles(Collections.singleton(userRole));
+        user.setRole(userRole);
 
         return userRepository.save(user);
     }
