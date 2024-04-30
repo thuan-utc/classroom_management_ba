@@ -15,7 +15,7 @@ public class Role extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @NaturalId
-    @Column(length = 60)
+    @Column(length = 10)
     private RoleName name;
 
     public Role() {

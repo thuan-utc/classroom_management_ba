@@ -21,6 +21,6 @@ public class UserController {
 
     @GetMapping("/detail")
     public ResponseEntity<?> getUserDetail() {
-        return ResponseEntity.ok(userService.getUserDetail());
+        return ResponseEntity.ok(userService.getCurrentLoginUserDetail());
     }
 }

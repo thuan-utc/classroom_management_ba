@@ -6,12 +6,17 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import javax.persistence.Entity;
+import javax.persistence.Table;
+import java.time.Instant;
 
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-public class Teacher extends BaseEntity {
-    private String name;
+@Table(name = "class_registration")
+public class ClassRegistration extends BaseEntity {
+    private Instant registerDay;
+
+    private Boolean active;
 }

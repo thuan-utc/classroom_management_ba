@@ -10,10 +10,8 @@ import javax.persistence.*;
 import javax.validation.constraints.Email;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.Size;
+import java.time.Instant;
 import java.time.LocalDate;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
 
 @Getter
 @Setter
@@ -21,16 +19,16 @@ import java.util.Set;
 @AllArgsConstructor
 @NoArgsConstructor
 public class User extends BaseEntity {
-    @NotBlank
+    @NotBlank(message = "username must be not blank!")
     @Size(max = 15)
     private String username;
 
-    @NotBlank
+    @NotBlank(message = "password must be not blank!")
     @Size(max = 100)
     private String password;
 
     @NaturalId
-    @NotBlank
+    @NotBlank(message = "email must be not blank!")
     @Size(max = 40)
     @Email
     private String email;
@@ -38,16 +36,29 @@ public class User extends BaseEntity {
     @Size(max = 40)
     private String phone;
 
-    private String name;
+    @Column(name = "first_name")
+    private String firstName;
+
+    private String surname;
+
+    @Column(name = "last_name")
+    private String lastName;
 
     private LocalDate dob;
 
     @OneToOne
     private Role role;
 
-    public User(String username, String email, String password) {
-        this.username = username;
-        this.password = password;
-        this.email = email;
-    }
+    private Boolean active = false;
+
+    @Column(name = "active_code")
+    private String activeCode;
+
+    @Column(name = "number_active_attempt") // number attempt to verify email
+    private Integer numberActiveAttempt = 0;
+
+    @Column(name = "last_active_attempt")
+    private Instant lastActiveAttempt;
+
+    private String note;
 }

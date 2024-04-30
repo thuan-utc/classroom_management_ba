@@ -17,6 +17,6 @@ public class AuditAwareImplement implements AuditorAware<String> {
             return Optional.of("system");
         }
 
-        return Optional.of(authentication.getName());
+        return Optional.of(authentication.getPrincipal().toString());
     }
 }

@@ -13,6 +13,8 @@ import javax.persistence.Table;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-public class Student extends BaseEntity {
+@Table(name = "exam_score")
+public class ExamScore extends BaseEntity {
     private String name;
+    private Double mark;
 }

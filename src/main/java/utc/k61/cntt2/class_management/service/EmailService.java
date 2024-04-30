@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import javax.annotation.PostConstruct;
 import java.io.IOException;
 
+@Deprecated
 @Service
 public class EmailService {
     private Logger log = LoggerFactory.getLogger(EmailService.class);

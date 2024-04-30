@@ -8,13 +8,9 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-import utc.k61.cntt2.class_management.domain.User;
+import org.springframework.web.bind.annotation.*;
 import utc.k61.cntt2.class_management.dto.ApiResponse;
+import utc.k61.cntt2.class_management.dto.ResetPasswordRequest;
 import utc.k61.cntt2.class_management.dto.security.JwtAuthenticationResponse;
 import utc.k61.cntt2.class_management.dto.security.LoginRequest;
 import utc.k61.cntt2.class_management.dto.security.SignUpRequest;
@@ -22,7 +18,6 @@ import utc.k61.cntt2.class_management.security.JwtTokenProvider;
 import utc.k61.cntt2.class_management.service.UserService;
 
 import javax.validation.Valid;
-import java.net.URI;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -60,12 +55,27 @@ public class AuthController {
 
     @PostMapping("/signup")
     public ResponseEntity<?> registerUser(@Valid @RequestBody SignUpRequest signUpRequest) {
-        User result = userService.createNewUser(signUpRequest);
+        userService.createNewUser(signUpRequest);
+//        URI location = ServletUriComponentsBuilder
+//                .fromCurrentContextPath().path("/users/{username}")
+//                .buildAndExpand(result.getUsername()).toUri();
 
-        URI location = ServletUriComponentsBuilder
-                .fromCurrentContextPath().path("/users/{username}")
-                .buildAndExpand(result.getUsername()).toUri();
-
-        return ResponseEntity.created(location).body(new ApiResponse(true, "User registered successfully"));
+        return ResponseEntity.ok(new ApiResponse(true, "Created new user. Please check your email!"));
     }
+
+    @GetMapping("/active-account")
+    public ResponseEntity<?> verifyEmail(@RequestParam String email, @RequestParam String code) {
+        return ResponseEntity.ok(userService.activeAccount(email, code));
+    }
+
+    @GetMapping("/send-mail-forgot-password")
+    public ResponseEntity<?> sendMailForgotPassword(@RequestParam String email) {
+        return ResponseEntity.ok(userService.sendMailForgotPassword(email));
+    }
+
+    @PutMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest request) {
+        return ResponseEntity.ok(userService.resetPassword(request));
+    }
+
 }
