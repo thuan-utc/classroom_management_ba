@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import javax.persistence.Entity;
+import javax.persistence.ManyToOne;
 
 @Getter
 @Setter
@@ -15,4 +16,7 @@ import javax.persistence.Entity;
 public class Notification extends BaseEntity {
     private String content;
     private String type;
+
+    @ManyToOne
+    private User user;
 }

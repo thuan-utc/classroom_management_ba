@@ -8,19 +8,21 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import utc.k61.cntt2.class_management.domain.Role;
 import utc.k61.cntt2.class_management.domain.User;
-import utc.k61.cntt2.class_management.dto.ApiResponse;
-import utc.k61.cntt2.class_management.dto.EmailDetail;
-import utc.k61.cntt2.class_management.dto.ResetPasswordRequest;
+import utc.k61.cntt2.class_management.dto.*;
 import utc.k61.cntt2.class_management.dto.security.SignUpRequest;
 import utc.k61.cntt2.class_management.enumeration.RoleName;
 import utc.k61.cntt2.class_management.exception.BadRequestException;
 import utc.k61.cntt2.class_management.exception.BusinessException;
+import utc.k61.cntt2.class_management.exception.ResourceNotFoundException;
 import utc.k61.cntt2.class_management.repository.RoleRepository;
 import utc.k61.cntt2.class_management.repository.UserRepository;
 import utc.k61.cntt2.class_management.security.SecurityUtils;
 import utc.k61.cntt2.class_management.service.email.EmailService;
 
-import java.time.*;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.util.Optional;
 
 @Service
 @Log4j2
@@ -58,18 +60,20 @@ public class UserService {
         user.setUsername(signUpRequest.getUsername());
         user.setPassword(passwordEncoder.encode(signUpRequest.getPassword()));
 
-        Role userRole = roleRepository.findByName(RoleName.TEACHER)
-                .orElseThrow(() -> new BusinessException("User Role not set."));
-        user.setRole(userRole);
+        Optional<Role> userRole = roleRepository.findByName(RoleName.TEACHER);
+        if (userRole.isEmpty()) {
+            log.error("User Role not set.");
+            throw new ResourceNotFoundException("Server Error");
+        }
+        user.setRole(userRole.get());
 
         user.setActive(false);
         user.setNumberActiveAttempt(0);
         String activeCode = RandomStringUtils.randomAlphanumeric(6);
         user.setActiveCode(activeCode);
 
-        user = userRepository.save(user);
-
         sendEmailVerification(user);
+        user = userRepository.save(user);
     }
 
     private void sendEmailVerification(User user) {
@@ -85,7 +89,7 @@ public class UserService {
         emailService.sendSimpleEmail(emailDetail);
     }
 
-    public User getCurrentLoginUserDetail() {
+    public User getCurrentUserLogin() {
         String currentLogin = SecurityUtils.getCurrentUserLogin()
                 .orElseThrow(() -> new BusinessException("Not found current user login"));
 
@@ -93,11 +97,38 @@ public class UserService {
                 .orElseThrow(() -> new BusinessException("Not found user with login " + currentLogin));
     }
 
-    public ApiResponse activeAccount(String email, String code) {
-        User user = userRepository.findFirstByEmail(email)
-                .orElseThrow(() -> new BusinessException("Not found user for email: " + email));
+    public UserDetailDto getUserInfo() {
+        User user = getCurrentUserLogin();
+        return new UserDetailDto(user);
+    }
 
-        boolean result = verifyEmail(code, user);
+    public UserDetailDto updateUserInfo(UserDetailDto userDetailDto) {
+        User user = getCurrentUserLogin();
+        if (StringUtils.isNoneBlank(userDetailDto.getFirstName())) {
+            user.setFirstName(userDetailDto.getFirstName());
+        }
+        if (StringUtils.isNoneBlank(userDetailDto.getSurname())) {
+            user.setSurname(userDetailDto.getSurname());
+        }
+        if (StringUtils.isNoneBlank(userDetailDto.getLastName())) {
+            user.setLastName(userDetailDto.getLastName());
+        }
+        if (userDetailDto.getDob() != null) {
+            user.setDob(userDetailDto.getDob());
+        }
+        if (StringUtils.isNoneBlank(userDetailDto.getPhone())) {
+            user.setPhone(userDetailDto.getPhone());
+        }
+        userRepository.save(user);
+        log.info("Updated info for user with login {}", user.getUsername());
+        return new UserDetailDto(user);
+    }
+
+    public ApiResponse activeAccount(ActiveAccountRequest request) {
+        User user = userRepository.findFirstByEmail(request.getEmail())
+                .orElseThrow(() -> new BusinessException("Not found user for email: " + request.getEmail()));
+
+        boolean result = verifyEmail(request.getCode(), user);
 
         if (result) {
             user.setActive(true);
@@ -151,11 +182,11 @@ public class UserService {
             user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         }
         userRepository.save(user);
-        return result   ? new ApiResponse(true, "Success") : new ApiResponse(false, "Failed");
+        return result ? new ApiResponse(true, "Success") : new ApiResponse(false, "Failed");
     }
 
     public ApiResponse resetPassword(String newPass) {
-        User user = getCurrentLoginUserDetail();
+        User user = getCurrentUserLogin();
         user.setPassword(passwordEncoder.encode(newPass));
         userRepository.save(user);
         return new ApiResponse(true, "Success");

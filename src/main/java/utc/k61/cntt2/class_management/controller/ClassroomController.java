@@ -3,16 +3,13 @@ package utc.k61.cntt2.class_management.controller;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import utc.k61.cntt2.class_management.domain.Classroom;
-import utc.k61.cntt2.class_management.dto.NewClassRequest;
+import utc.k61.cntt2.class_management.dto.classroom.NewClassRequest;
 import utc.k61.cntt2.class_management.service.ClassroomService;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -41,9 +38,14 @@ public class ClassroomController {
         return ResponseEntity.ok(classroomService.createNewClass(request));
     }
 
-    @PostMapping("/student")
-    public ResponseEntity<?> uploadStudentListCsv(@RequestParam("file") MultipartFile file) {
-        return ResponseEntity.ok(classroomService.uploadListCsvStudent(file));
+    @PutMapping("/student/{classId}")
+    public ResponseEntity<?> uploadStudentListXlsx(@RequestParam("file") MultipartFile file, @PathVariable Long classId) {
+        return ResponseEntity.ok(classroomService.uploadListXlsxStudent(file, classId));
+    }
+
+    @GetMapping("/detail")
+    public ResponseEntity<?> getClassDetail(@RequestParam Long classId) {
+        return ResponseEntity.ok(classroomService.getClassDetail(classId));
     }
 
 }

@@ -6,7 +6,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import utc.k61.cntt2.class_management.domain.User;
-import utc.k61.cntt2.class_management.exception.SomethingNotFoundException;
+import utc.k61.cntt2.class_management.exception.ResourceNotFoundException;
 import utc.k61.cntt2.class_management.repository.UserRepository;
 
 import javax.transaction.Transactional;
@@ -25,15 +25,17 @@ public class CustomerUserDetailService implements UserDetailsService {
     public UserDetails loadUserByUsername(String userName)
             throws UsernameNotFoundException {
         User user = userRepository.findByUsername(userName)
+                .filter(User::getActive)
+                .stream().findFirst()
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with username: " + userName));
-
+//todo return user not active?
         return UserPrincipal.create(user);
     }
 
     @Transactional
     public UserDetails loadUserById(Long id) {
         User user = userRepository.findById(id).orElseThrow(
-                () -> new SomethingNotFoundException("Not found user with id = " + id)
+                () -> new ResourceNotFoundException("Not found user with id = " + id)
         );
 
         return UserPrincipal.create(user);

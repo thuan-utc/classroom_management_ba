@@ -3,9 +3,8 @@ package utc.k61.cntt2.class_management.controller;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+import utc.k61.cntt2.class_management.dto.UserDetailDto;
 import utc.k61.cntt2.class_management.service.UserService;
 
 @RestController
@@ -19,8 +18,13 @@ public class UserController {
         this.userService = userService;
     }
 
-    @GetMapping("/detail")
+    @GetMapping
     public ResponseEntity<?> getUserDetail() {
-        return ResponseEntity.ok(userService.getCurrentLoginUserDetail());
+        return ResponseEntity.ok(userService.getUserInfo());
+    }
+
+    @PutMapping
+    public ResponseEntity<?> getUserDetail(@RequestBody UserDetailDto userDetailDto) {
+        return ResponseEntity.ok(userService.updateUserInfo(userDetailDto));
     }
 }

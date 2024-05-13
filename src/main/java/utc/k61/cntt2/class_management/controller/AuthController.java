@@ -9,6 +9,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import utc.k61.cntt2.class_management.dto.ActiveAccountRequest;
 import utc.k61.cntt2.class_management.dto.ApiResponse;
 import utc.k61.cntt2.class_management.dto.ResetPasswordRequest;
 import utc.k61.cntt2.class_management.dto.security.JwtAuthenticationResponse;
@@ -63,9 +64,9 @@ public class AuthController {
         return ResponseEntity.ok(new ApiResponse(true, "Created new user. Please check your email!"));
     }
 
-    @GetMapping("/active-account")
-    public ResponseEntity<?> verifyEmail(@RequestParam String email, @RequestParam String code) {
-        return ResponseEntity.ok(userService.activeAccount(email, code));
+    @PutMapping("/active-account")
+    public ResponseEntity<?> verifyEmail(@RequestBody ActiveAccountRequest request) {
+        return ResponseEntity.ok(userService.activeAccount(request));
     }
 
     @GetMapping("/send-mail-forgot-password")

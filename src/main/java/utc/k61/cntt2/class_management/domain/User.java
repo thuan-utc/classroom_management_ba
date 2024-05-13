@@ -21,6 +21,7 @@ import java.time.LocalDate;
 public class User extends BaseEntity {
     @NotBlank(message = "username must be not blank!")
     @Size(max = 15)
+    @Column(unique = true)
     private String username;
 
     @NotBlank(message = "password must be not blank!")
@@ -31,6 +32,7 @@ public class User extends BaseEntity {
     @NotBlank(message = "email must be not blank!")
     @Size(max = 40)
     @Email
+    @Column(unique = true)
     private String email;
 
     @Size(max = 40)

@@ -1,5 +1,6 @@
 package utc.k61.cntt2.class_management.dto.security;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -14,7 +15,7 @@ import javax.validation.constraints.Size;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Valid
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class SignUpRequest {
     @NotBlank(message = "username must not be empty!")
     @Size(min = 3, max = 15)
@@ -26,7 +27,7 @@ public class SignUpRequest {
     @Email
     private String email;
 
-    @NotBlank(message = "password length is less then 6!")
+    @NotBlank(message = "password length must be greater 6!")
     @Size(min = 6, max = 20)
     private String password;
 }
