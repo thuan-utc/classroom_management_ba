@@ -82,4 +82,8 @@ public class DocumentService {
             return predicate;
         });
     }
+
+    public List<ClassDocument> search(Long classId) {
+        return documentRepository.findAllByClassroomId(classId);
+    }
 }

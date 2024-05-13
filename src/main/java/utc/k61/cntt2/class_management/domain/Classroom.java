@@ -1,5 +1,6 @@
 package utc.k61.cntt2.class_management.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -29,12 +30,16 @@ public class Classroom extends BaseEntity {
     @JoinColumn(name = "teacher_id")
     private User teacher;
 
-    @JsonIgnoreProperties
+    @JsonIgnore
     @OneToMany(mappedBy = "classroom", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     private List<ClassRegistration> classRegistrations;
 
-    @JsonIgnoreProperties
+    @JsonIgnore
     @OneToMany(mappedBy = "classroom", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     private List<ClassSchedule> schedules;
+
+    @JsonIgnore
+    @OneToMany(mappedBy = "classroom", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    private List<ClassDocument> documents;
 
 }

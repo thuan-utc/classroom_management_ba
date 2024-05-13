@@ -27,14 +27,14 @@ public class StudentController {
         this.studentService = studentService;
     }
 
-//    @GetMapping("/search")
-//    public ResponseEntity<?> search(@RequestParam Map<String, String> params, Pageable pageable) throws Exception {
-//        Page<Classroom> page = studentService.search(params, pageable);
-//        return ResponseEntity.ok(page);
-//    }
-
     @GetMapping("/search")
-    public ResponseEntity<?> getAllStudentForClass(@RequestParam Long classId) throws Exception {
+    public ResponseEntity<?> search(@RequestParam Map<String, String> params, Pageable pageable) {
+        Page<ClassRegistration> page = studentService.search(params, pageable);
+        return ResponseEntity.ok(page);
+    }
+
+    @GetMapping
+    public ResponseEntity<?> getAllStudentForClass(@RequestParam Long classId) {
         List<ClassRegistration> students = studentService.getAllStudentForClass(classId);
         return ResponseEntity.ok(new PageImpl<>(students));
     }
