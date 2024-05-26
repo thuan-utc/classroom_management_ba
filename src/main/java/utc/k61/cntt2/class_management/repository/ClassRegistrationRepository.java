@@ -10,5 +10,9 @@ import java.util.List;
 @Repository
 public interface ClassRegistrationRepository extends JpaSpecificationExecutor<ClassRegistration>,
         JpaRepository<ClassRegistration, Long> {
-    List<ClassRegistration> findAllByClassroomId(Long classId);
+    List<ClassRegistration> findAllByClassroomIdOrderByLastNameAsc(Long classId);
+
+    List<ClassRegistration> findAllByStudentId(Long id);
+
+    List<ClassRegistration> findAllByEmail(String email);
 }

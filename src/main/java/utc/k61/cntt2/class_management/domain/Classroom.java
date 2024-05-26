@@ -42,4 +42,12 @@ public class Classroom extends BaseEntity {
     @OneToMany(mappedBy = "classroom", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     private List<ClassDocument> documents;
 
+    @JsonIgnore
+    @OneToMany(mappedBy = "classroom", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    private List<Exam> exams;
+
+//    @JsonIgnore
+//    @OneToMany(mappedBy = "classroom", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+//    private List<TutorFee> tutorFees;
+
 }

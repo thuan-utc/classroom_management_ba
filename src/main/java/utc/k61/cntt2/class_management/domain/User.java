@@ -1,5 +1,6 @@
 package utc.k61.cntt2.class_management.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -12,6 +13,7 @@ import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.Size;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 
 @Getter
 @Setter
@@ -63,4 +65,8 @@ public class User extends BaseEntity {
     private Instant lastActiveAttempt;
 
     private String note;
+
+    @JsonIgnore
+    @OneToMany(mappedBy = "teacher", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    private List<Classroom> classrooms;
 }

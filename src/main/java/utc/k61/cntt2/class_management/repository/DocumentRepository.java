@@ -9,5 +9,5 @@ import java.util.List;
 
 @Repository
 public interface DocumentRepository extends JpaRepository<ClassDocument, Long>, JpaSpecificationExecutor<ClassDocument> {
-    List<ClassDocument> findAllByClassroomId(Long classId);
+    List<ClassDocument> findAllByClassroomIdOrderByLastModifiedDateDesc(Long classId);
 }

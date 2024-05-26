@@ -9,36 +9,45 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import utc.k61.cntt2.class_management.domain.ClassRegistration;
+import utc.k61.cntt2.class_management.domain.ClassSchedule;
 import utc.k61.cntt2.class_management.domain.Classroom;
 import utc.k61.cntt2.class_management.domain.User;
 import utc.k61.cntt2.class_management.dto.ApiResponse;
+import utc.k61.cntt2.class_management.dto.ClassPeriodInWeek;
 import utc.k61.cntt2.class_management.dto.classroom.ClassroomDto;
 import utc.k61.cntt2.class_management.dto.classroom.NewClassRequest;
 import utc.k61.cntt2.class_management.dto.StudentDto;
+import utc.k61.cntt2.class_management.enumeration.ClassPeriod;
 import utc.k61.cntt2.class_management.enumeration.RoleName;
 import utc.k61.cntt2.class_management.exception.BusinessException;
 import utc.k61.cntt2.class_management.exception.ResourceNotFoundException;
 import utc.k61.cntt2.class_management.repository.ClassRegistrationRepository;
+import utc.k61.cntt2.class_management.repository.ClassScheduleRepository;
 import utc.k61.cntt2.class_management.repository.ClassroomRepository;
 import utc.k61.cntt2.class_management.repository.UserRepository;
 import utc.k61.cntt2.class_management.security.SecurityUtils;
 
+import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.Predicate;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Log4j2
@@ -47,16 +56,21 @@ public class ClassroomService {
     private final ClassroomRepository classroomRepository;
     private final UserRepository userRepository;
     private final ClassRegistrationRepository classRegistrationRepository;
+    private final UserService userService;
+    private final ClassScheduleRepository classScheduleRepository;
     private final String tempFolder;
 
     @Autowired
     public ClassroomService(ClassroomRepository classroomRepository,
                             UserRepository userRepository,
                             ClassRegistrationRepository classRegistrationRepository,
-                            @Value("${app.temp}") String tempFolder) {
+                            UserService userService,
+                            ClassScheduleRepository classScheduleRepository, @Value("${app.temp}") String tempFolder) {
         this.classroomRepository = classroomRepository;
         this.userRepository = userRepository;
         this.classRegistrationRepository = classRegistrationRepository;
+        this.userService = userService;
+        this.classScheduleRepository = classScheduleRepository;
         this.tempFolder = tempFolder;
     }
 
@@ -157,6 +171,8 @@ public class ClassroomService {
                 .orElseThrow(() -> new BusinessException("Not found current user login"));
         User currentUserLogin = userRepository.findByUsername(currentLogin)
                 .orElseThrow(() -> new BusinessException("Not found user with login " + currentLogin));
+        List<String> emails = studentDtos.stream().map(StudentDto::getEmail).collect(Collectors.toList());
+        List<User> users = userService.findAllByEmailIn(emails);
         List<ClassRegistration> students = new ArrayList<>();
         studentDtos.forEach(studentDto -> {
             ClassRegistration student = new ClassRegistration();
@@ -171,6 +187,8 @@ public class ClassroomService {
             student.setRegistrationDate(Instant.now());
             student.setEmailConfirmed(false);
             student.setClassroom(classroom);
+            Optional<User> existingUser = users.stream().filter(user -> StringUtils.equalsIgnoreCase(user.getEmail(), student.getEmail())).findAny();
+            existingUser.ifPresent(student::setStudent);
 
             students.add(student);
         });
@@ -219,7 +237,7 @@ public class ClassroomService {
         String fileName = file.getName();
         int i = fileName.lastIndexOf('.');
         if (i > 0) {
-            extension = fileName.substring(i+1);
+            extension = fileName.substring(i + 1);
         }
         return extension;
     }
@@ -236,7 +254,7 @@ public class ClassroomService {
     }
 
     private Specification<Classroom> getSpecification(Map<String, String> params, User currentUser) {
-        return Specification.where((root, criteriaQuery, criteriaBuilder) ->{
+        return Specification.where((root, criteriaQuery, criteriaBuilder) -> {
             Predicate predicate = null;
             List<Predicate> predicateList = new ArrayList<>();
             for (Map.Entry<String, String> p : params.entrySet()) {
@@ -269,6 +287,73 @@ public class ClassroomService {
         });
     }
 
+    public Page<Classroom> searchClassForStudent(Map<String, String> params, Pageable pageable) {
+        User currentLoginUser = SecurityUtils.getCurrentUserLogin()
+                .flatMap(userRepository::findByUsername)
+                .orElseThrow(() -> new BusinessException("Can not find current user login!"));
+        if (currentLoginUser.getRole().getName() != RoleName.STUDENT) {
+            throw new BusinessException("Require Role Student!");
+        }
+        List<ClassRegistration> classRegistrations = classRegistrationRepository.findAllByEmail(currentLoginUser.getEmail());
+        List<Classroom> classrooms = classRegistrations.stream().map(ClassRegistration::getClassroom).collect(Collectors.toList());
+        List<Long> classIds = classrooms.stream().map(Classroom::getId).collect(Collectors.toList());
+        if (classIds.isEmpty()) {
+            return new PageImpl<>(new ArrayList<>());
+        }
+        Specification<Classroom> specs = getSpecificationForStudent(params, classIds);
+        return classroomRepository.findAll(specs, pageable);
+    }
+
+    private Specification<Classroom> getSpecificationForStudent(Map<String, String> params, List<Long> classIds) {
+        return Specification.where((root, criteriaQuery, criteriaBuilder) -> {
+            List<Predicate> predicateList = new ArrayList<>();
+
+            // Process parameters for filtering
+            for (Map.Entry<String, String> p : params.entrySet()) {
+                String key = p.getKey();
+                String value = p.getValue();
+
+                if (!"page".equalsIgnoreCase(key) && !"size".equalsIgnoreCase(key) && !"sort".equalsIgnoreCase(key)) {
+                    if (StringUtils.equalsIgnoreCase("startCreatedDate", key)) {
+                        // "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
+                        predicateList.add(criteriaBuilder.greaterThanOrEqualTo(
+                                root.get("createdDate"),
+                                LocalDate.parse(value, DateTimeFormatter.ofPattern("yyyy-MM-dd")).atStartOfDay().toInstant(ZoneOffset.UTC)
+                        ));
+                    } else if (StringUtils.equalsIgnoreCase("endCreatedDate", key)) {
+                        predicateList.add(criteriaBuilder.lessThanOrEqualTo(
+                                root.get("createdDate"),
+                                LocalDate.parse(value, DateTimeFormatter.ofPattern("yyyy-MM-dd")).atStartOfDay().toInstant(ZoneOffset.UTC)
+                        ));
+                    } else {
+                        if (value != null && (value.contains("*") || value.contains("%"))) {
+                            predicateList.add(criteriaBuilder.like(root.get(key), "%" + value + "%"));
+                        } else if (value != null) {
+                            predicateList.add(criteriaBuilder.like(root.get(key), value + "%"));
+                        }
+                    }
+                }
+            }
+
+            // Add predicate for classIds
+            if (classIds != null && !classIds.isEmpty()) {
+                CriteriaBuilder.In<Long> inClause = criteriaBuilder.in(root.get("id"));
+                for (Long classId : classIds) {
+                    inClause.value(classId);
+                }
+                predicateList.add(inClause);
+            }
+
+            // Combine all predicates
+            Predicate finalPredicate = null;
+            if (!predicateList.isEmpty()) {
+                finalPredicate = criteriaBuilder.and(predicateList.toArray(new Predicate[0]));
+            }
+
+            return finalPredicate;
+        });
+    }
+
     public Object getClassDetail(Long classId) {
         Classroom classroom = classroomRepository.findById(classId)
                 .orElseThrow(() -> new ResourceNotFoundException("Not found class"));
@@ -279,8 +364,10 @@ public class ClassroomService {
         classroomDto.setSubjectName(classroom.getSubjectName());
         classroomDto.setCreatedDate(classroom.getCreatedDate());
 
-        //todo fill data
-
         return classroomDto;
+    }
+
+    public Classroom getById(Long classId) {
+        return classroomRepository.findById(classId).orElseThrow(() -> new ResourceNotFoundException("Not found class"));
     }
 }

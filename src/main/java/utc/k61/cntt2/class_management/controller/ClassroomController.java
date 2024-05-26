@@ -2,6 +2,7 @@ package utc.k61.cntt2.class_management.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -47,5 +48,12 @@ public class ClassroomController {
     public ResponseEntity<?> getClassDetail(@RequestParam Long classId) {
         return ResponseEntity.ok(classroomService.getClassDetail(classId));
     }
+
+    @GetMapping("/class-for-student")
+    public ResponseEntity<?> searchClassForStudent(@RequestParam Map<String, String> params, Pageable pageable) throws Exception {
+            Page<Classroom> page = classroomService.searchClassForStudent(params, pageable);
+        return ResponseEntity.ok(page);
+    }
+
 
 }

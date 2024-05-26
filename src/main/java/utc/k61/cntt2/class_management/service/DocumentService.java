@@ -3,19 +3,26 @@ package utc.k61.cntt2.class_management.service;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 import utc.k61.cntt2.class_management.domain.ClassDocument;
 import utc.k61.cntt2.class_management.domain.Classroom;
 import utc.k61.cntt2.class_management.domain.User;
+import utc.k61.cntt2.class_management.dto.ApiResponse;
 import utc.k61.cntt2.class_management.enumeration.RoleName;
 import utc.k61.cntt2.class_management.exception.BusinessException;
+import utc.k61.cntt2.class_management.exception.ResourceNotFoundException;
 import utc.k61.cntt2.class_management.repository.ClassroomRepository;
 import utc.k61.cntt2.class_management.repository.DocumentRepository;
 
 import javax.persistence.criteria.Predicate;
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -30,14 +37,20 @@ public class DocumentService {
     private final DocumentRepository documentRepository;
     private final ClassroomRepository classroomRepository;
     private final UserService userService;
+    private final String tempFolder;
+    private final String documentFolder;
 
     @Autowired
     public DocumentService(DocumentRepository documentRepository,
                            ClassroomRepository classroomRepository,
-                           UserService userService) {
+                           UserService userService,
+                           @Value("${app.temp}") String tempFolder,
+                           @Value("${app.document}") String documentFolder) {
         this.documentRepository = documentRepository;
         this.classroomRepository = classroomRepository;
         this.userService = userService;
+        this.tempFolder = tempFolder;
+        this.documentFolder = documentFolder;
     }
 
     public Page<ClassDocument> search(Map<String, String> params, Pageable pageable) {
@@ -52,7 +65,7 @@ public class DocumentService {
     }
 
     private Specification<ClassDocument> getSpecification(Map<String, String> params, List<Long> classIds) {
-        return Specification.where((root, criteriaQuery, criteriaBuilder) ->{
+        return Specification.where((root, criteriaQuery, criteriaBuilder) -> {
             Predicate predicate = null;
             List<Predicate> predicateList = new ArrayList<>();
             for (Map.Entry<String, String> p : params.entrySet()) {
@@ -75,15 +88,69 @@ public class DocumentService {
 
             predicateList.add(root.get("classroom").get("id").in(classIds));
 
-            if (!predicateList.isEmpty()) {
-                predicate = criteriaBuilder.and(predicateList.toArray(new Predicate[]{}));
-            }
+            predicate = criteriaBuilder.and(predicateList.toArray(new Predicate[]{}));
 
             return predicate;
         });
     }
 
     public List<ClassDocument> search(Long classId) {
-        return documentRepository.findAllByClassroomId(classId);
+        return documentRepository.findAllByClassroomIdOrderByLastModifiedDateDesc(classId);
+    }
+
+    public ApiResponse uploadDocumentPdf(MultipartFile file, Long classId) {
+        Classroom classroom = classroomRepository.findById(classId)
+                .orElseThrow(() -> new ResourceNotFoundException("Not found classroom!"));
+
+        File tempFolder = new File(this.tempFolder + "/document");
+        if (!tempFolder.exists()) {
+            tempFolder.mkdirs();
+        }
+
+        // Create a file object with the specified folder
+        File tempFile = new File(tempFolder, file.getOriginalFilename());
+        try {
+            file.transferTo(tempFile);
+        } catch (Exception e) {
+            log.error("Cannot process file", e);
+            throw new BusinessException("Cannot process file");
+        }
+
+        // Check file extension
+        String fileExtension = ClassroomService.getExtension(tempFile);
+        if (!StringUtils.equalsIgnoreCase(fileExtension, "pdf")) {
+            throw new BusinessException("Only process PDF files");
+        }
+
+        //assume upload to storage
+        String finalPath = documentFolder + "/" + classId + "/";
+        File finalFolder = new File(finalPath);
+        if (!finalFolder.exists()) {
+            finalFolder.mkdirs();
+        }
+        String documentLink = finalPath + file.getOriginalFilename();
+        File finalPdfFile = new File(documentLink);
+        try {
+            Files.move(tempFile.toPath(), finalPdfFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        } catch (Exception e) {
+            log.error("Cannot move file to /document folder", e);
+            throw new BusinessException("Cannot move file to /document folder");
+        }
+
+
+        ClassDocument document = new ClassDocument();
+        document.setDocumentLink(documentLink);
+        document.setDocumentName(file.getOriginalFilename());
+        document.setClassroom(classroom);
+        documentRepository.save(document);
+
+        return new ApiResponse(true, "Success");
+    }
+
+    public String getFilePath(Long documentId) {
+        ClassDocument document = documentRepository.findById(documentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Not found document!"));
+
+        return document.getDocumentLink();
     }
 }

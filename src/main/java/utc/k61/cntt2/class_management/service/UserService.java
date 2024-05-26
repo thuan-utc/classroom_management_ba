@@ -6,6 +6,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import utc.k61.cntt2.class_management.domain.ClassRegistration;
 import utc.k61.cntt2.class_management.domain.Role;
 import utc.k61.cntt2.class_management.domain.User;
 import utc.k61.cntt2.class_management.dto.*;
@@ -14,6 +15,7 @@ import utc.k61.cntt2.class_management.enumeration.RoleName;
 import utc.k61.cntt2.class_management.exception.BadRequestException;
 import utc.k61.cntt2.class_management.exception.BusinessException;
 import utc.k61.cntt2.class_management.exception.ResourceNotFoundException;
+import utc.k61.cntt2.class_management.repository.ClassRegistrationRepository;
 import utc.k61.cntt2.class_management.repository.RoleRepository;
 import utc.k61.cntt2.class_management.repository.UserRepository;
 import utc.k61.cntt2.class_management.security.SecurityUtils;
@@ -22,6 +24,7 @@ import utc.k61.cntt2.class_management.service.email.EmailService;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -32,16 +35,19 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
 
     private final EmailService emailService;
+    private final ClassRegistrationRepository classRegistrationRepository;
 
     @Autowired
     public UserService(UserRepository userRepository,
                        RoleRepository roleRepository,
                        PasswordEncoder passwordEncoder,
-                       EmailService emailService) {
+                       EmailService emailService,
+                       ClassRegistrationRepository classRegistrationRepository) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
         this.emailService = emailService;
+        this.classRegistrationRepository = classRegistrationRepository;
     }
 
     public void createNewUser(SignUpRequest signUpRequest) {
@@ -118,8 +124,14 @@ public class UserService {
         }
         if (StringUtils.isNoneBlank(userDetailDto.getPhone())) {
             user.setPhone(userDetailDto.getPhone());
+            List<ClassRegistration> classRegistrations = classRegistrationRepository.findAllByEmail(user.getEmail());
+            for (ClassRegistration classRegistration : classRegistrations) {
+                classRegistration.setPhone(userDetailDto.getPhone());
+            }
+            classRegistrationRepository.saveAll(classRegistrations);
         }
         userRepository.save(user);
+
         log.info("Updated info for user with login {}", user.getUsername());
         return new UserDetailDto(user);
     }
@@ -193,4 +205,7 @@ public class UserService {
     }
 
 
+    public List<User> findAllByEmailIn(List<String> emails) {
+        return userRepository.findAllByEmailIn(emails);
+    }
 }

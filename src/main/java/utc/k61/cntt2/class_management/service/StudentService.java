@@ -7,7 +7,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
-import utc.k61.cntt2.class_management.domain.ClassDocument;
 import utc.k61.cntt2.class_management.domain.ClassRegistration;
 import utc.k61.cntt2.class_management.domain.Classroom;
 import utc.k61.cntt2.class_management.domain.User;
@@ -43,7 +42,7 @@ public class StudentService {
     }
 
     public List<ClassRegistration> getAllStudentForClass(Long classId) {
-        return classRegistrationRepository.findAllByClassroomId(classId);
+        return classRegistrationRepository.findAllByClassroomIdOrderByLastNameAsc(classId);
     }
 
     public Page<ClassRegistration> search(Map<String, String> params, Pageable pageable) {

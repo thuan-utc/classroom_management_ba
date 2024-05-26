@@ -10,6 +10,7 @@ import utc.k61.cntt2.class_management.enumeration.ClassPeriod;
 
 import javax.persistence.*;
 import java.time.LocalDate;
+import java.util.List;
 
 @Getter
 @Setter
@@ -30,4 +31,8 @@ public class ClassSchedule extends BaseEntity {
     @ManyToOne(cascade = CascadeType.ALL)
     @JoinColumn(name = "classroom_id")
     private Classroom classroom;
+
+    @JsonIgnore
+    @OneToMany(mappedBy = "classSchedule", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    private List<ClassAttendance> classAttendances;
 }

@@ -17,6 +17,7 @@ public class UserDetailDto {
     private String lastName;
     private LocalDate dob;
     private String accountType;
+    private String role;
 
     public UserDetailDto(User user) {
         this.username = user.getUsername();
@@ -27,5 +28,6 @@ public class UserDetailDto {
         this.lastName = user.getLastName();
         this.dob = user.getDob();
         this.accountType = user.getRole().getName().toString();
+        this.role = user.getRole().getName().toString();
     }
 }
