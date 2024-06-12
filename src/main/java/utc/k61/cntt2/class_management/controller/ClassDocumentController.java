@@ -45,6 +45,11 @@ public class ClassDocumentController {
         return ResponseEntity.ok(documentService.uploadDocumentPdf(file, classId));
     }
 
+    @PutMapping("/delete/{documentId}")
+    public ResponseEntity<?> deleteDocument(@PathVariable Long documentId) {
+        return ResponseEntity.ok(documentService.deleteDocument(documentId));
+    }
+
     @GetMapping("/download/{documentId}")
     public void getDocumentPdf(HttpServletResponse response, @PathVariable Long documentId) throws IOException {
         String filePath = documentService.getFilePath(documentId);

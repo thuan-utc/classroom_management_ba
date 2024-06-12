@@ -6,15 +6,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.stereotype.Service;
-import utc.k61.cntt2.class_management.domain.ClassAttendance;
-import utc.k61.cntt2.class_management.domain.ClassRegistration;
-import utc.k61.cntt2.class_management.domain.ClassSchedule;
-import utc.k61.cntt2.class_management.domain.Classroom;
-import utc.k61.cntt2.class_management.dto.ApiResponse;
+import utc.k61.cntt2.class_management.domain.*;
 import utc.k61.cntt2.class_management.dto.ClassAttendanceDto;
+import utc.k61.cntt2.class_management.dto.StudentAttendanceResultDto;
+import utc.k61.cntt2.class_management.enumeration.RoleName;
+import utc.k61.cntt2.class_management.exception.BusinessException;
 import utc.k61.cntt2.class_management.exception.ResourceNotFoundException;
 import utc.k61.cntt2.class_management.repository.ClassAttendanceRepository;
 import utc.k61.cntt2.class_management.repository.ClassScheduleRepository;
+import utc.k61.cntt2.class_management.repository.ClassroomRepository;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,12 +26,19 @@ import java.util.stream.Collectors;
 public class ClassAttendanceService {
     private final ClassAttendanceRepository classAttendanceRepository;
     private final ClassScheduleRepository classScheduleRepository;
+    private final ClassroomRepository classroomRepository;
+    private final UserService userService;
 
     @Autowired
-    public ClassAttendanceService(ClassAttendanceRepository classAttendanceRepository,
-                                  ClassScheduleRepository classScheduleRepository) {
+    public ClassAttendanceService(
+            ClassAttendanceRepository classAttendanceRepository,
+            ClassScheduleRepository classScheduleRepository,
+            ClassroomRepository classroomRepository,
+            UserService userService) {
         this.classAttendanceRepository = classAttendanceRepository;
         this.classScheduleRepository = classScheduleRepository;
+        this.classroomRepository = classroomRepository;
+        this.userService = userService;
     }
 
     public Page<?> fetchClassAttendance(Long scheduleId) {
@@ -77,12 +84,45 @@ public class ClassAttendanceService {
         List<ClassAttendance> attendances = classAttendanceRepository.findAllByIdIn(attendanceIds);
         for (ClassAttendanceDto attendanceDto : attendanceResults) {
             if (attendanceDto.getIsAttended() != null) {
-                Optional<ClassAttendance> attendance = attendances.stream().filter(a -> attendanceDto.getId() == a.getId()).findFirst();
+                Optional<ClassAttendance> attendance = attendances.stream().filter(a -> attendanceDto.getId().equals(a.getId())).findFirst();
                 attendance.ifPresent(classAttendance -> classAttendance.setIsAttended(attendanceDto.getIsAttended()));
             }
         }
 
         classAttendanceRepository.saveAll(attendances);
         return new PageImpl<>(attendances);
+    }
+
+    public Object getStudentAttendanceResult(Long classId) {
+        User currentLoginUser = userService.getCurrentUserLogin();
+        if (currentLoginUser.getRole().getName() != RoleName.STUDENT) {
+            throw new BusinessException("Require Role Student!");
+        }
+        Classroom classroom = classroomRepository.findById(classId)
+                .orElseThrow(() -> new ResourceNotFoundException("Not found classroom"));
+        List<ClassSchedule> classSchedules = classroom.getSchedules();
+        List<ClassAttendance> currentStudentAttendanceResult = new ArrayList<>();
+        for (ClassSchedule classSchedule : classSchedules) {
+            List<ClassAttendance> attendanceResults = classSchedule.getClassAttendances();
+            for (ClassAttendance attendance : attendanceResults) {
+                if (attendance.getClassRegistration() != null
+                        && StringUtils.equalsIgnoreCase(attendance.getClassRegistration().getEmail(), currentLoginUser.getEmail())) {
+                    currentStudentAttendanceResult.add(attendance);
+                    break;
+                }
+            }
+        }
+
+        List<StudentAttendanceResultDto> resultList = new ArrayList<>();
+        for (ClassAttendance attendance : currentStudentAttendanceResult) {
+            StudentAttendanceResultDto resultDto = new StudentAttendanceResultDto();
+            resultDto.setDay(attendance.getClassSchedule().getDay());
+            resultDto.setClassPeriod(attendance.getClassSchedule().getPeriodInDay());
+            resultDto.setAttended(attendance.getIsAttended());
+
+            resultList.add(resultDto);
+        }
+
+        return new PageImpl<>(resultList);
     }
 }

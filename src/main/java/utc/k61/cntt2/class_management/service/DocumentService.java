@@ -20,6 +20,7 @@ import utc.k61.cntt2.class_management.repository.ClassroomRepository;
 import utc.k61.cntt2.class_management.repository.DocumentRepository;
 
 import javax.persistence.criteria.Predicate;
+import javax.transaction.Transactional;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
@@ -152,5 +153,26 @@ public class DocumentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Not found document!"));
 
         return document.getDocumentLink();
+    }
+
+    @Transactional
+    public ApiResponse deleteDocument(Long documentId) {
+        User user = userService.getCurrentUserLogin();
+        if (user.getRole().getName() != RoleName.TEACHER) {
+            throw new BusinessException("Missing permission");
+        }
+        List<Classroom> classrooms = user.getClassrooms();
+        List<ClassDocument> documents = classrooms.stream().flatMap(classroom -> classroom.getDocuments().stream()).collect(Collectors.toList());
+        documents.stream()
+                .filter(document1 -> document1.getId().equals(documentId)).findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("Not found document"));
+        try {
+            documentRepository.deleteById(documentId);
+        } catch (Exception e) {
+            log.error("Exception during delete operation", e);
+            throw new BusinessException("Deletion failed due to an error");
+        }
+
+        return new ApiResponse(true, "Success");
     }
 }

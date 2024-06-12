@@ -12,4 +12,6 @@ public interface ClassAttendanceRepository extends JpaRepository<ClassAttendance
 
 
     List<ClassAttendance> findAllByIdIn(List<Long> attendanceIds);
+
+    void deleteAllByClassScheduleId(Long scheduleId);
 }

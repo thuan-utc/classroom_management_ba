@@ -15,12 +15,12 @@ public class ClassAttendance extends BaseEntity {
     private Boolean isAttended;
 
     @JsonIgnore
-    @ManyToOne(cascade = CascadeType.ALL)
+    @ManyToOne
     @JoinColumn(name = "schedule_id")
     private ClassSchedule classSchedule;
 
     @JsonIgnore
-    @ManyToOne(cascade = CascadeType.ALL)
+    @ManyToOne
     @JoinColumn(name = "class_registration_id")
     private ClassRegistration classRegistration;
 

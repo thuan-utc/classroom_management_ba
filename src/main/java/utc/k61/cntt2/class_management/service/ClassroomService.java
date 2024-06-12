@@ -357,17 +357,39 @@ public class ClassroomService {
     public Object getClassDetail(Long classId) {
         Classroom classroom = classroomRepository.findById(classId)
                 .orElseThrow(() -> new ResourceNotFoundException("Not found class"));
+        return buildClassroomDto(classroom);
+    }
+
+    private static ClassroomDto buildClassroomDto(Classroom classroom) {
         ClassroomDto classroomDto = new ClassroomDto();
         classroomDto.setId(classroom.getId());
         classroomDto.setClassName(classroom.getClassName());
         classroomDto.setNote(classroom.getNote());
         classroomDto.setSubjectName(classroom.getSubjectName());
         classroomDto.setCreatedDate(classroom.getCreatedDate());
+        User teacher = classroom.getTeacher();
+        classroomDto.setTeacherName(teacher.getFirstName() + " " + teacher.getSurname() + " " + teacher.getLastName());
 
         return classroomDto;
     }
 
     public Classroom getById(Long classId) {
         return classroomRepository.findById(classId).orElseThrow(() -> new ResourceNotFoundException("Not found class"));
+    }
+
+    public ClassroomDto updateClassDetail(ClassroomDto classroomDto) {
+        Classroom classroom = getById(classroomDto.getId());
+        if (StringUtils.isNotBlank(classroomDto.getClassName())) {
+            classroom.setClassName(classroomDto.getClassName());
+        }
+        if (StringUtils.isNotBlank(classroomDto.getSubjectName())) {
+            classroom.setSubjectName(classroomDto.getSubjectName());
+        }
+        if (StringUtils.isNotBlank(classroomDto.getNote())) {
+            classroom.setNote(classroomDto.getNote());
+        }
+        classroom = classroomRepository.save(classroom);
+        log.info("Updated classroom with id {}, name {}", classroom.getId(), classroom.getClassName());
+        return buildClassroomDto(classroom);
     }
 }

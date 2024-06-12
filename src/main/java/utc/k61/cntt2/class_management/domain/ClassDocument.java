@@ -20,7 +20,7 @@ public class ClassDocument extends BaseEntity {
     private String documentLink;
 
     @JsonIgnore
-    @ManyToOne(cascade = CascadeType.ALL)
+    @ManyToOne
     @JoinColumn(name = "classroom_id")
     private Classroom classroom;
 }

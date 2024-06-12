@@ -2,7 +2,12 @@ package utc.k61.cntt2.class_management.service;
 
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -10,12 +15,16 @@ import org.springframework.stereotype.Service;
 import utc.k61.cntt2.class_management.domain.ClassRegistration;
 import utc.k61.cntt2.class_management.domain.Classroom;
 import utc.k61.cntt2.class_management.domain.User;
+import utc.k61.cntt2.class_management.dto.ApiResponse;
+import utc.k61.cntt2.class_management.dto.StudentDto;
 import utc.k61.cntt2.class_management.enumeration.RoleName;
 import utc.k61.cntt2.class_management.exception.BusinessException;
 import utc.k61.cntt2.class_management.repository.ClassRegistrationRepository;
 import utc.k61.cntt2.class_management.repository.ClassroomRepository;
 
 import javax.persistence.criteria.Predicate;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -30,15 +39,21 @@ public class StudentService {
     private final ClassRegistrationRepository classRegistrationRepository;
     private final ClassroomRepository classroomRepository;
     private final UserService userService;
+    private final ClassroomService classroomService;
+    private final String tempFolder;
 
     @Autowired
     public StudentService(
             ClassRegistrationRepository classRegistrationRepository,
             ClassroomRepository classroomRepository,
-            UserService userService) {
+            UserService userService,
+            ClassroomService classroomService,
+            @Value("${app.temp}") String tempFolder) {
         this.classRegistrationRepository = classRegistrationRepository;
         this.classroomRepository = classroomRepository;
         this.userService = userService;
+        this.classroomService = classroomService;
+        this.tempFolder = tempFolder;
     }
 
     public List<ClassRegistration> getAllStudentForClass(Long classId) {
@@ -57,7 +72,7 @@ public class StudentService {
     }
 
     private Specification<ClassRegistration> getSpecification(Map<String, String> params, List<Long> classIds) {
-        return Specification.where((root, criteriaQuery, criteriaBuilder) ->{
+        return Specification.where((root, criteriaQuery, criteriaBuilder) -> {
             Predicate predicate = null;
             List<Predicate> predicateList = new ArrayList<>();
             for (Map.Entry<String, String> p : params.entrySet()) {
@@ -88,4 +103,61 @@ public class StudentService {
         });
     }
 
+    public Object addStudentForClass(StudentDto studentDto, Long classId) {
+        Classroom classroom = classroomService.getById(classId);
+        ClassRegistration student = ClassRegistration.newBuilder()
+                .firstName(studentDto.getFirstName())
+                .surname(studentDto.getSurname())
+                .lastName(studentDto.getLastName())
+                .email(studentDto.getEmail())
+                .phone(studentDto.getPhone())
+                .address(studentDto.getAddress()).build();
+        student.setClassroom(classroom);
+        classRegistrationRepository.save(student);
+
+        return new ApiResponse(true, "Success");
+    }
+
+    public String extractListStudent(Long classId) {
+        List<ClassRegistration> students = getAllStudentForClass(classId);
+        String fileName = "students_class_" + classId + ".xlsx";
+
+        Workbook workbook = new XSSFWorkbook();
+        try {
+            Sheet sheet = workbook.createSheet("Students");
+
+            // Create header row
+            Row headerRow = sheet.createRow(0);
+            headerRow.createCell(0).setCellValue("ID");
+            headerRow.createCell(1).setCellValue("Tên Họ");
+            headerRow.createCell(2).setCellValue("Tên Đệm");
+            headerRow.createCell(3).setCellValue("Tên");
+            headerRow.createCell(4).setCellValue("Email");
+            headerRow.createCell(5).setCellValue("Số điện thoại");
+            headerRow.createCell(6).setCellValue("Địa chỉ");
+
+            // Create data rows
+            int rowIndex = 1;
+            for (ClassRegistration student : students) {
+                Row row = sheet.createRow(rowIndex++);
+                row.createCell(0).setCellValue(student.getId());
+                row.createCell(1).setCellValue(student.getFirstName());
+                row.createCell(2).setCellValue(student.getSurname());
+                row.createCell(3).setCellValue(student.getLastName());
+                row.createCell(4).setCellValue(student.getEmail());
+                row.createCell(5).setCellValue(student.getPhone());
+                row.createCell(6).setCellValue(student.getAddress());
+            }
+
+            // Write the output to a file
+            try (FileOutputStream fileOut = new FileOutputStream(fileName)) {
+                workbook.write(fileOut);
+            }
+        } catch (IOException e) {
+            log.error("Error while writing XLSX file", e);
+            return null;
+        }
+
+        return fileName;
+    }
 }

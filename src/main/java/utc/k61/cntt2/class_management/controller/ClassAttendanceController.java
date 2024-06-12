@@ -28,4 +28,9 @@ public class ClassAttendanceController {
     public ResponseEntity<?> saveAttendanceResult(@RequestBody List<ClassAttendanceDto> attendanceDtoList) {
         return ResponseEntity.ok(classAttendanceService.saveAttendanceResult(attendanceDtoList));
     }
+
+    @GetMapping("/student-attendance-result")
+    public ResponseEntity<?> getStudentAttendanceResult(@RequestParam Long classId) {
+        return ResponseEntity.ok(classAttendanceService.getStudentAttendanceResult(classId));
+    }
 }

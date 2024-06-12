@@ -39,4 +39,9 @@ public class ClassScheduleController {
     public ResponseEntity<ApiResponse> createClassSchedule(@RequestBody NewClassScheduleRequest request) {
         return ResponseEntity.ok(classScheduleService.createClassSchedule(request));
     }
+
+    @PutMapping("/delete/{scheduleId}")
+    public ResponseEntity<?> deleteDocument(@PathVariable Long scheduleId) {
+        return ResponseEntity.ok(classScheduleService.deleteSchedule(scheduleId));
+    }
 }

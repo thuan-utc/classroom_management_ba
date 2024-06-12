@@ -41,4 +41,9 @@ public class ExamScoreController {
     public ResponseEntity<?> saveExamResult(@RequestBody List<ExamScoreDto> examScoreDtos) {
         return ResponseEntity.ok(examScoreService.saveExamResult(examScoreDtos));
     }
+
+    @GetMapping("/student-exam-result")
+    public ResponseEntity<?> getStudentAttendanceResult(@RequestParam Long classId) {
+        return ResponseEntity.ok(examScoreService.getStudentExamResult(classId));
+    }
 }

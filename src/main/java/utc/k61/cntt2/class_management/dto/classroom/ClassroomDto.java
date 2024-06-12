@@ -13,4 +13,5 @@ public class ClassroomDto {
     private Integer numberOfStudent;
     private Instant createdDate;
     private String createdBy;
+    private String teacherName;
 }

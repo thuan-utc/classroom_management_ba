@@ -9,19 +9,25 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import utc.k61.cntt2.class_management.domain.ClassSchedule;
 import utc.k61.cntt2.class_management.domain.Classroom;
+import utc.k61.cntt2.class_management.domain.User;
 import utc.k61.cntt2.class_management.dto.ApiResponse;
 import utc.k61.cntt2.class_management.dto.NewClassScheduleRequest;
+import utc.k61.cntt2.class_management.enumeration.RoleName;
+import utc.k61.cntt2.class_management.exception.BusinessException;
 import utc.k61.cntt2.class_management.exception.ResourceNotFoundException;
+import utc.k61.cntt2.class_management.repository.ClassAttendanceRepository;
 import utc.k61.cntt2.class_management.repository.ClassScheduleRepository;
 import utc.k61.cntt2.class_management.repository.ClassroomRepository;
 
 import javax.persistence.criteria.Predicate;
+import javax.transaction.Transactional;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Log4j2
 @Service
@@ -29,14 +35,20 @@ public class ClassScheduleService {
     private final ClassScheduleRepository classScheduleRepository;
     private final ClassroomRepository classroomRepository;
     private final TutorFeeService tutorFeeService;
+    private final UserService userService;
+    private final ClassAttendanceRepository classAttendanceRepository;
 
     @Autowired
-    public ClassScheduleService(ClassScheduleRepository classScheduleRepository,
-                                ClassroomRepository classroomRepository,
-                                TutorFeeService tutorFeeService) {
+    public ClassScheduleService(
+            ClassScheduleRepository classScheduleRepository,
+            ClassroomRepository classroomRepository,
+            TutorFeeService tutorFeeService,
+            UserService userService, ClassAttendanceRepository classAttendanceRepository) {
         this.classScheduleRepository = classScheduleRepository;
         this.classroomRepository = classroomRepository;
         this.tutorFeeService = tutorFeeService;
+        this.userService = userService;
+        this.classAttendanceRepository = classAttendanceRepository;
     }
 
     public List<ClassSchedule> getAllClassSchedule(Long classId) {
@@ -103,5 +115,28 @@ public class ClassScheduleService {
         log.info("Created class schedule for class {}", classroom.getClassName());
 //        tutorFeeService.refreshTutorFee(classroom.getId());
         return new ApiResponse(true, "success");
+    }
+
+    @Transactional
+    public ApiResponse deleteSchedule(Long scheduleId) {
+        User user = userService.getCurrentUserLogin();
+        if (user.getRole().getName() != RoleName.TEACHER) {
+            throw new BusinessException("Missing permission");
+        }
+        //todo check user have this document
+        List<Classroom> classrooms = user.getClassrooms();
+        List<ClassSchedule> schedules = classrooms.stream().flatMap(classroom -> classroom.getSchedules().stream()).collect(Collectors.toList());
+        schedules.stream()
+                .filter(schedule -> schedule.getId().equals(scheduleId)).findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("Not found schedule"));
+        try {
+            classAttendanceRepository.deleteAllByClassScheduleId(scheduleId);
+            classScheduleRepository.deleteById(scheduleId);
+        } catch (Exception e) {
+            log.error("Exception during delete operation", e);
+            throw new BusinessException("Deletion failed due to an error");
+        }
+
+        return new ApiResponse(true,"Success");
     }
 }

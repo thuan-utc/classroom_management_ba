@@ -8,9 +8,9 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.stereotype.Service;
 import utc.k61.cntt2.class_management.domain.*;
 import utc.k61.cntt2.class_management.dto.ApiResponse;
-import utc.k61.cntt2.class_management.dto.ClassAttendanceDto;
 import utc.k61.cntt2.class_management.dto.ExamScoreDto;
 import utc.k61.cntt2.class_management.dto.NewExamRequest;
+import utc.k61.cntt2.class_management.dto.StudentExamResultDto;
 import utc.k61.cntt2.class_management.enumeration.RoleName;
 import utc.k61.cntt2.class_management.exception.BusinessException;
 import utc.k61.cntt2.class_management.exception.ResourceNotFoundException;
@@ -111,6 +111,34 @@ public class ExamScoreService {
     public Page<?> fetchAllExam(Long classId) {
         Classroom classroom = classroomService.getById(classId);
         return new PageImpl<>(classroom.getExams());
+    }
+
+    public Object getStudentExamResult(Long classId) {
+        User user = userService.getCurrentUserLogin();
+        Classroom classroom = classroomService.getById(classId);
+        List<Exam> exams = classroom.getExams();
+        List<ExamScore> currentUserResult = new ArrayList<>();
+        for (Exam exam : exams) {
+            List<ExamScore> examScoreList = exam.getExamScoreList();
+            for (ExamScore examScore : examScoreList) {
+                if (examScore.getClassRegistration() != null
+                        && StringUtils.equalsIgnoreCase(examScore.getClassRegistration().getEmail(), user.getEmail())) {
+                    currentUserResult.add(examScore);
+                    break;
+                }
+            }
+        }
+
+        List<StudentExamResultDto> resultList = new ArrayList<>();
+        for (ExamScore examScore : currentUserResult) {
+            StudentExamResultDto resultDto = new StudentExamResultDto();
+            resultDto.setExamName(examScore.getExam().getName());
+            resultDto.setScore(examScore.getScore());
+
+            resultList.add(resultDto);
+        }
+
+        return new PageImpl<>(resultList);
     }
 }
 

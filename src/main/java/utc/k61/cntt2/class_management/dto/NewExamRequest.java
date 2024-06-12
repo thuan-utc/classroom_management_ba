@@ -12,6 +12,5 @@ public class NewExamRequest {
     private String examName;
 
     @NotNull
-    @NotBlank
     private Long classId;
 }
