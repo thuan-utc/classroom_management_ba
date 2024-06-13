@@ -22,7 +22,7 @@ public class ExamScoreController {
         this.examScoreService = examScoreService;
     }
 
-    @PostMapping("/{classId}")
+    @PostMapping
     public ResponseEntity<?> createExam(@Valid @RequestBody NewExamRequest request) {
         return ResponseEntity.ok(examScoreService.createNewExam(request));
     }
