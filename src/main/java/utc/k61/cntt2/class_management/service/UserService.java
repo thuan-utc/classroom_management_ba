@@ -95,6 +95,59 @@ public class UserService {
         emailService.sendSimpleEmail(emailDetail);
     }
 
+    public void createDefaultStudentAccount(ClassRegistration student) {
+        if (StringUtils.isNotBlank(student.getEmail())) {
+            String randomPassword = RandomStringUtils.randomAlphanumeric(6);
+            SignUpRequest signUpRequest = new SignUpRequest();
+            signUpRequest.setUsername(student.getEmail());
+            signUpRequest.setEmail(student.getEmail());
+            signUpRequest.setPassword(randomPassword);
+
+            if (userRepository.existsByUsername(signUpRequest.getUsername())) {
+                throw new BadRequestException("Username " + signUpRequest.getUsername() + " already in use");
+            }
+
+            if (userRepository.existsByEmail(signUpRequest.getEmail())) {
+                throw new BadRequestException("Email " + signUpRequest.getEmail() + " already in use");
+            }
+
+            User user = new User();
+            user.setEmail(signUpRequest.getEmail());
+            user.setUsername(signUpRequest.getUsername());
+            user.setPassword(passwordEncoder.encode(signUpRequest.getPassword()));
+
+            Optional<Role> userRole = roleRepository.findByName(RoleName.STUDENT);
+            if (userRole.isEmpty()) {
+                log.error("User Role not set.");
+                throw new BusinessException("Server Error: User role not found");
+            }
+            user.setRole(userRole.get());
+
+            user.setActive(true);
+//            user.setNumberActiveAttempt(0);
+//            String activeCode = RandomStringUtils.randomAlphanumeric(6);
+//            user.setActiveCode(activeCode);
+
+            sendEmailVerification(user, randomPassword);
+            user = userRepository.save(user);
+
+            student.setStudent(user);
+        }
+    }
+
+    private void sendEmailVerification(User user, String randomPassword) {
+        EmailDetail emailDetail = new EmailDetail();
+        if (StringUtils.isBlank(user.getEmail())) {
+            throw new BusinessException("Cannot send email verification for empty email!");
+        }
+        emailDetail.setSubject("Xác thực tài khoản lớp học");
+        emailDetail.setMsgBody("Đây là mật khẩu của bạn: " + randomPassword);
+        emailDetail.setRecipient(user.getEmail());
+
+        log.info("Sending email verification to email {}", user.getEmail());
+        emailService.sendSimpleEmail(emailDetail);
+    }
+
     public User getCurrentUserLogin() {
         String currentLogin = SecurityUtils.getCurrentUserLogin()
                 .orElseThrow(() -> new BusinessException("Not found current user login"));

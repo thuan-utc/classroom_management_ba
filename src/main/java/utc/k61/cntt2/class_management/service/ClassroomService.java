@@ -188,8 +188,17 @@ public class ClassroomService {
             student.setEmailConfirmed(false);
             student.setClassroom(classroom);
             Optional<User> existingUser = users.stream().filter(user -> StringUtils.equalsIgnoreCase(user.getEmail(), student.getEmail())).findAny();
-            existingUser.ifPresent(student::setStudent);
-
+            if (existingUser.isPresent()) {
+                student.setStudent(existingUser.get());
+            } else {
+                if (StringUtils.isNotBlank(student.getEmail())) {
+                    try {
+                        userService.createDefaultStudentAccount(student);
+                    } catch (Exception e) {
+                        log.error("Failed to create account for email {}", student.getEmail());
+                    }
+                }
+            }
             students.add(student);
         });
 

@@ -22,7 +22,7 @@ import java.util.List;
 @NoArgsConstructor
 public class User extends BaseEntity {
     @NotBlank(message = "username must be not blank!")
-    @Size(max = 15)
+    @Size(max = 30)
     @Column(unique = true)
     private String username;
 

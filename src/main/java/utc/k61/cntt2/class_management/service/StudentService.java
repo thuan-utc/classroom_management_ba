@@ -34,6 +34,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Log4j2
@@ -118,6 +119,21 @@ public class StudentService {
                 .phone(studentDto.getPhone())
                 .address(studentDto.getAddress()).build();
         student.setClassroom(classroom);
+        List<User> users = userService.findAllByEmailIn(List.of(studentDto.getEmail()));
+        Optional<User> existingUser = users.stream().filter(user -> StringUtils.equalsIgnoreCase(user.getEmail(), student.getEmail())).findAny();
+        existingUser.ifPresent(student::setStudent);
+        if (existingUser.isPresent()) {
+            student.setStudent(existingUser.get());
+        } else {
+            if (StringUtils.isNotBlank(student.getEmail())) {
+                try {
+                    userService.createDefaultStudentAccount(student);
+                } catch (Exception e) {
+                    log.error("Failed to create account for email {}", student.getEmail(), e);
+                }
+            }
+
+        }
         classRegistrationRepository.save(student);
 
         return new ApiResponse(true, "Success");
