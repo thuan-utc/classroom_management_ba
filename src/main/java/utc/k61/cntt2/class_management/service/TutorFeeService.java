@@ -1,17 +1,24 @@
 package utc.k61.cntt2.class_management.service;
 
 import lombok.extern.log4j.Log4j2;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.stereotype.Service;
-import utc.k61.cntt2.class_management.domain.ClassAttendance;
-import utc.k61.cntt2.class_management.domain.ClassRegistration;
-import utc.k61.cntt2.class_management.domain.ClassSchedule;
-import utc.k61.cntt2.class_management.domain.Classroom;
+import utc.k61.cntt2.class_management.domain.*;
+import utc.k61.cntt2.class_management.dto.EmailDetail;
 import utc.k61.cntt2.class_management.dto.TutorFeeDto;
+import utc.k61.cntt2.class_management.service.email.EmailService;
 //import utc.k61.cntt2.class_management.repository.TutorFeeRepository;
 
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -20,10 +27,15 @@ import java.util.stream.Collectors;
 public class TutorFeeService {
     //    private final TutorFeeRepository tutorFeeRepository;
     private final ClassroomService classroomService;
+    private final EmailService emailService;
+    private final String tempFolder;
 
     @Autowired
-    public TutorFeeService(ClassroomService classroomService) {
+    public TutorFeeService(ClassroomService classroomService,
+                           EmailService emailService, @Value("${app.temp}") String tempFolder) {
         this.classroomService = classroomService;
+        this.emailService = emailService;
+        this.tempFolder = tempFolder;
     }
 
 
@@ -118,7 +130,7 @@ public class TutorFeeService {
 //        });
 //    }
 
-    public Page<?> calculateFee(Long classId, Integer month, Integer year, Integer classSessionPrice) {
+    public Page<TutorFeeDto> calculateFee(Long classId, Integer month, Integer year, Integer classSessionPrice) {
         Classroom classroom = classroomService.getById(classId);
         List<ClassSchedule> classSchedules = classroom.getSchedules();
         List<ClassSchedule> scheduleFiltered = classSchedules.stream()
@@ -156,4 +168,77 @@ public class TutorFeeService {
     }
 
 
+    public String extractTutorFeeResult(Long classId, Integer month, Integer year, Integer classSessionPrice) {
+        List<TutorFeeDto> tutorFeeDtos = calculateFee(classId, month, year, classSessionPrice).getContent();
+        String fileName = tempFolder + "/" + "hoc_phi_" + month.toString() + "_" + year.toString() + "_lop_" + classId + ".xlsx";
+
+        Workbook workbook = new XSSFWorkbook();
+        try {
+            Sheet sheet = workbook.createSheet("Students");
+
+            // Create header row
+            Row headerRow = sheet.createRow(0);
+            headerRow.createCell(0).setCellValue("Họ tên");
+            headerRow.createCell(1).setCellValue("Email");
+            headerRow.createCell(2).setCellValue("Phone");
+            headerRow.createCell(3).setCellValue("Tổng số buổi");
+            headerRow.createCell(4).setCellValue("Số buổi đi học");
+            headerRow.createCell(5).setCellValue("Học phí (vnd)");
+
+            // Create data rows
+            int rowIndex = 1;
+            for (TutorFeeDto tutorFeeDto : tutorFeeDtos) {
+                Row row = sheet.createRow(rowIndex++);
+                row.createCell(0).setCellValue(tutorFeeDto.getStudentName());
+                row.createCell(1).setCellValue(tutorFeeDto.getEmail());
+                row.createCell(2).setCellValue(tutorFeeDto.getPhone());
+                row.createCell(3).setCellValue(tutorFeeDto.getTotalNumberOfClasses());
+                row.createCell(4).setCellValue(tutorFeeDto.getNumberOfClassesAttended());
+                row.createCell(5).setCellValue(tutorFeeDto.getFeeAmount());
+            }
+
+            // Write the output to a file
+            try (FileOutputStream fileOut = new FileOutputStream(fileName)) {
+                workbook.write(fileOut);
+            }
+        } catch (IOException e) {
+            log.error("Error while writing XLSX file", e);
+            return null;
+        }
+
+        return fileName;
+    }
+
+    public String sendTutorFeeNotificationEmail(Long classId, Integer month, Integer year, Integer classSessionPrice) {
+        List<TutorFeeDto> tutorFeeDtos = calculateFee(classId, month, year, classSessionPrice).getContent();
+        Classroom classroom = classroomService.getById(classId);
+        User teacher = classroom.getTeacher();
+        String teacherName = teacher.getFirstName() + " " + teacher.getSurname() + " " + teacher.getLastName();
+        String teacherEmail = teacher.getEmail();
+
+        for (TutorFeeDto tutorFeeDto : tutorFeeDtos) {
+            if (StringUtils.isNotBlank(tutorFeeDto.getEmail())) {
+                EmailDetail emailDetail = new EmailDetail();
+                emailDetail.setRecipient(tutorFeeDto.getEmail());
+                emailDetail.setSubject("Thông tin học phí tháng " + month + "/" + year);
+                emailDetail.setMsgBody(buildEmailBody(tutorFeeDto, month, year, teacherName, teacherEmail));
+
+                emailService.sendSimpleEmail(emailDetail);
+                log.info("Sent tutor fee notification for email {}", tutorFeeDto.getEmail());
+            }
+        }
+
+        return "Success";
+    }
+
+    private String buildEmailBody(TutorFeeDto tutorFeeDto, Integer month, Integer year, String teacherName, String teacherEmail) {
+        return "Kính gửi " + tutorFeeDto.getStudentName() + ",\n\n" +
+                "Đây là thông tin học phí của bạn trong tháng " + month + "/" + year + ":\n" +
+                "Tổng số buổi học: " + tutorFeeDto.getTotalNumberOfClasses() + "\n" +
+                "Số buổi đã tham gia: " + tutorFeeDto.getNumberOfClassesAttended() + "\n" +
+                "Số tiền học phí: " + tutorFeeDto.getFeeAmount() + " VND\n\n" +
+                "Cảm ơn bạn,\n" +
+                "Giáo viên: " + teacherName + "\n" +
+                "Liên hệ giáo viên: " + teacherEmail;
+    }
 }
