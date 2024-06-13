@@ -10,6 +10,7 @@ import org.springframework.web.multipart.MultipartFile;
 import utc.k61.cntt2.class_management.domain.ClassRegistration;
 import utc.k61.cntt2.class_management.domain.Classroom;
 import utc.k61.cntt2.class_management.dto.StudentDto;
+import utc.k61.cntt2.class_management.dto.classroom.ClassroomDto;
 import utc.k61.cntt2.class_management.service.StudentService;
 
 import javax.servlet.ServletOutputStream;
@@ -78,5 +79,16 @@ public class StudentController {
             out.flush();
         }
     }
+
+    @PutMapping("/delete/{studentId}")
+    public ResponseEntity<?> deleteDocument(@PathVariable Long studentId) {
+        return ResponseEntity.ok(studentService.deleteStudent(studentId));
+    }
+
+    @PutMapping
+    public ResponseEntity<?> updateStudent(@RequestBody StudentDto studentDto) {
+        return ResponseEntity.ok(studentService.updateStudent(studentDto));
+    }
+
 }
 

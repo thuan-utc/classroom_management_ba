@@ -19,10 +19,13 @@ import utc.k61.cntt2.class_management.dto.ApiResponse;
 import utc.k61.cntt2.class_management.dto.StudentDto;
 import utc.k61.cntt2.class_management.enumeration.RoleName;
 import utc.k61.cntt2.class_management.exception.BusinessException;
+import utc.k61.cntt2.class_management.exception.ResourceNotFoundException;
+import utc.k61.cntt2.class_management.repository.ClassAttendanceRepository;
 import utc.k61.cntt2.class_management.repository.ClassRegistrationRepository;
 import utc.k61.cntt2.class_management.repository.ClassroomRepository;
 
 import javax.persistence.criteria.Predicate;
+import javax.transaction.Transactional;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.time.LocalDate;
@@ -37,6 +40,7 @@ import java.util.stream.Collectors;
 @Service
 public class StudentService {
     private final ClassRegistrationRepository classRegistrationRepository;
+    private final ClassAttendanceRepository classAttendanceRepository;
     private final ClassroomRepository classroomRepository;
     private final UserService userService;
     private final ClassroomService classroomService;
@@ -45,11 +49,12 @@ public class StudentService {
     @Autowired
     public StudentService(
             ClassRegistrationRepository classRegistrationRepository,
-            ClassroomRepository classroomRepository,
+            ClassAttendanceRepository classAttendanceRepository, ClassroomRepository classroomRepository,
             UserService userService,
             ClassroomService classroomService,
             @Value("${app.temp}") String tempFolder) {
         this.classRegistrationRepository = classRegistrationRepository;
+        this.classAttendanceRepository = classAttendanceRepository;
         this.classroomRepository = classroomRepository;
         this.userService = userService;
         this.classroomService = classroomService;
@@ -120,7 +125,7 @@ public class StudentService {
 
     public String extractListStudent(Long classId) {
         List<ClassRegistration> students = getAllStudentForClass(classId);
-        String fileName = "students_class_" + classId + ".xlsx";
+        String fileName = tempFolder + "/" + "students_class_" + classId + ".xlsx";
 
         Workbook workbook = new XSSFWorkbook();
         try {
@@ -159,5 +164,45 @@ public class StudentService {
         }
 
         return fileName;
+    }
+
+    @Transactional
+    public ApiResponse deleteStudent(Long studentId) {
+        User user = userService.getCurrentUserLogin();
+        if (user.getRole().getName() != RoleName.TEACHER) {
+            throw new BusinessException("Missing permission");
+        }
+        List<Classroom> classrooms = user.getClassrooms();
+        List<ClassRegistration> classRegistrations = classrooms.stream().flatMap(classroom -> classroom.getClassRegistrations().stream()).collect(Collectors.toList());
+        classRegistrations.stream()
+                .filter(student -> student.getId().equals(studentId)).findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("Not found student"));
+        try {
+            classAttendanceRepository.deleteAllByClassRegistrationId(studentId);
+            classRegistrationRepository.deleteById(studentId);
+        } catch (Exception e) {
+            log.error("Exception during delete operation", e);
+            throw new BusinessException("Deletion failed due to an error");
+        }
+
+        return new ApiResponse(true,"Success");
+    }
+
+    public Object updateStudent(StudentDto studentDto) {
+        ClassRegistration existingStudent = classRegistrationRepository.findById(studentDto.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Student not found with id: " + studentDto.getDob()));
+
+        // Update the fields
+        existingStudent.setFirstName(studentDto.getFirstName());
+        existingStudent.setSurname(studentDto.getSurname());
+        existingStudent.setLastName(studentDto.getLastName());
+        existingStudent.setEmail(studentDto.getEmail());
+        existingStudent.setPhone(studentDto.getPhone());
+        existingStudent.setAddress(studentDto.getAddress());
+        existingStudent.setDob(studentDto.getDob());
+
+        classRegistrationRepository.save(existingStudent);
+
+        return "Success";
     }
 }

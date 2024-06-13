@@ -5,6 +5,8 @@ import lombok.*;
 
 import javax.persistence.*;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.util.Date;
 import java.util.Objects;
 
 @Builder(builderMethodName = "newBuilder")
@@ -37,6 +39,8 @@ public class ClassRegistration extends BaseEntity {
 
     @Column(name = "email_confirmed")
     private Boolean emailConfirmed = false; // check that student has click agree in email invitation
+
+    private Date dob;
 
     @ManyToOne
     @JoinColumn(name = "student_id")

@@ -2,7 +2,12 @@ package utc.k61.cntt2.class_management.service;
 
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.stereotype.Service;
@@ -16,9 +21,12 @@ import utc.k61.cntt2.class_management.repository.ClassAttendanceRepository;
 import utc.k61.cntt2.class_management.repository.ClassScheduleRepository;
 import utc.k61.cntt2.class_management.repository.ClassroomRepository;
 
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.stream.Collectors;
 
 @Log4j2
@@ -28,17 +36,22 @@ public class ClassAttendanceService {
     private final ClassScheduleRepository classScheduleRepository;
     private final ClassroomRepository classroomRepository;
     private final UserService userService;
+    private final ClassroomService classroomService;
+    private final String tempFolder;
 
     @Autowired
     public ClassAttendanceService(
             ClassAttendanceRepository classAttendanceRepository,
             ClassScheduleRepository classScheduleRepository,
             ClassroomRepository classroomRepository,
-            UserService userService) {
+            UserService userService, ClassroomService classroomService,
+            @Value("${app.temp}") String tempFolder) {
         this.classAttendanceRepository = classAttendanceRepository;
         this.classScheduleRepository = classScheduleRepository;
         this.classroomRepository = classroomRepository;
         this.userService = userService;
+        this.classroomService = classroomService;
+        this.tempFolder = tempFolder;
     }
 
     public Page<?> fetchClassAttendance(Long scheduleId) {
@@ -124,5 +137,69 @@ public class ClassAttendanceService {
         }
 
         return new PageImpl<>(resultList);
+    }
+
+    public String extractAttendanceResult(Long classId) {
+        Classroom classroom = classroomService.getById(classId);
+        List<ClassSchedule> classSchedules = classroom.getSchedules();
+        List<ClassAttendance> classAttendances = classSchedules.stream()
+                .flatMap(classSchedule -> classSchedule.getClassAttendances().stream())
+                .collect(Collectors.toList());
+        List<ClassRegistration> students = classroom.getClassRegistrations();
+
+        String fileName = tempFolder + "/" + "ket_qua_diem_danh_" + classId + ".xlsx";
+
+        Workbook workbook = new XSSFWorkbook();
+        try {
+            Sheet sheet = workbook.createSheet("Students");
+
+            // Create header row
+            Row headerRow = sheet.createRow(0);
+            headerRow.createCell(0).setCellValue("ID");
+            headerRow.createCell(1).setCellValue("Tên Họ");
+            headerRow.createCell(2).setCellValue("Tên Đệm");
+            headerRow.createCell(3).setCellValue("Tên");
+            headerRow.createCell(4).setCellValue("Email");
+            headerRow.createCell(5).setCellValue("Số điện thoại");
+            headerRow.createCell(6).setCellValue("Địa chỉ");
+            int i = 7;
+            for (ClassSchedule classSchedule : classSchedules) {
+                headerRow.createCell(i++).setCellValue(classSchedule.getDay() + "-" + classSchedule.getPeriodInDay().getName());
+            }
+
+            // Create data rows
+            int rowIndex = 1;
+            for (ClassRegistration student : students) {
+                Row row = sheet.createRow(rowIndex++);
+                row.createCell(0).setCellValue(student.getId());
+                row.createCell(1).setCellValue(student.getFirstName());
+                row.createCell(2).setCellValue(student.getSurname());
+                row.createCell(3).setCellValue(student.getLastName());
+                row.createCell(4).setCellValue(student.getEmail());
+                row.createCell(5).setCellValue(student.getPhone());
+                row.createCell(6).setCellValue(student.getAddress());
+                int j = 7;
+                for (ClassSchedule classSchedule : classSchedules) {
+                    String result = "";
+                    Optional<ClassAttendance> classAttendance = classSchedule.getClassAttendances().stream()
+                            .filter(classAttendance1 -> classAttendance1.getClassRegistration().getId().equals(student.getId()))
+                            .findAny();
+                    if (classAttendance.isPresent()) {
+                        result = classAttendance.get().getIsAttended() ? "1" : "0";
+                    }
+                    row.createCell(j++).setCellValue(result);
+                }
+            }
+
+            // Write the output to a file
+            try (FileOutputStream fileOut = new FileOutputStream(fileName)) {
+                workbook.write(fileOut);
+            }
+        } catch (IOException e) {
+            log.error("Error while writing XLSX file", e);
+            return null;
+        }
+
+        return fileName;
     }
 }
