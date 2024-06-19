@@ -2,11 +2,13 @@ package utc.k61.cntt2.class_management.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.*;
+import utc.k61.cntt2.class_management.dto.TutorFeeDetailDto;
 
 import javax.persistence.*;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Date;
+import java.util.List;
 import java.util.Objects;
 
 @Builder(builderMethodName = "newBuilder")
@@ -50,6 +52,10 @@ public class ClassRegistration extends BaseEntity {
     @ManyToOne
     @JoinColumn(name = "classroom_id")
     private Classroom classroom;
+
+    @JsonIgnore
+    @OneToMany(mappedBy = "classRegistration", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    private List<TutorFeeDetail> tutorFeeDetails;
 
     @Override
     public boolean equals(Object o) {

@@ -35,8 +35,7 @@ public class StudentController {
 
     @GetMapping("/search")
     public ResponseEntity<?> search(@RequestParam Map<String, String> params, Pageable pageable) {
-        Page<ClassRegistration> page = studentService.search(params, pageable);
-        return ResponseEntity.ok(page);
+        return ResponseEntity.ok( studentService.search(params, pageable));
     }
 
     @GetMapping

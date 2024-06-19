@@ -9,12 +9,11 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
-import utc.k61.cntt2.class_management.domain.ClassRegistration;
-import utc.k61.cntt2.class_management.domain.Classroom;
-import utc.k61.cntt2.class_management.domain.User;
+import utc.k61.cntt2.class_management.domain.*;
 import utc.k61.cntt2.class_management.dto.ApiResponse;
 import utc.k61.cntt2.class_management.dto.StudentDto;
 import utc.k61.cntt2.class_management.enumeration.RoleName;
@@ -23,6 +22,7 @@ import utc.k61.cntt2.class_management.exception.ResourceNotFoundException;
 import utc.k61.cntt2.class_management.repository.ClassAttendanceRepository;
 import utc.k61.cntt2.class_management.repository.ClassRegistrationRepository;
 import utc.k61.cntt2.class_management.repository.ClassroomRepository;
+import utc.k61.cntt2.class_management.repository.TutorFeeDetailRepository;
 
 import javax.persistence.criteria.Predicate;
 import javax.transaction.Transactional;
@@ -42,6 +42,7 @@ import java.util.stream.Collectors;
 public class StudentService {
     private final ClassRegistrationRepository classRegistrationRepository;
     private final ClassAttendanceRepository classAttendanceRepository;
+    private final TutorFeeDetailRepository tutorFeeDetailRepository;
     private final ClassroomRepository classroomRepository;
     private final UserService userService;
     private final ClassroomService classroomService;
@@ -50,12 +51,15 @@ public class StudentService {
     @Autowired
     public StudentService(
             ClassRegistrationRepository classRegistrationRepository,
-            ClassAttendanceRepository classAttendanceRepository, ClassroomRepository classroomRepository,
+            ClassAttendanceRepository classAttendanceRepository,
+            TutorFeeDetailRepository tutorFeeDetailRepository,
+            ClassroomRepository classroomRepository,
             UserService userService,
             ClassroomService classroomService,
             @Value("${app.temp}") String tempFolder) {
         this.classRegistrationRepository = classRegistrationRepository;
         this.classAttendanceRepository = classAttendanceRepository;
+        this.tutorFeeDetailRepository = tutorFeeDetailRepository;
         this.classroomRepository = classroomRepository;
         this.userService = userService;
         this.classroomService = classroomService;
@@ -66,7 +70,7 @@ public class StudentService {
         return classRegistrationRepository.findAllByClassroomIdOrderByLastNameAsc(classId);
     }
 
-    public Page<ClassRegistration> search(Map<String, String> params, Pageable pageable) {
+    public Page<?> search(Map<String, String> params, Pageable pageable) {
         User currentLoginUser = userService.getCurrentUserLogin();
         if (currentLoginUser.getRole().getName() != RoleName.TEACHER) {
             throw new BusinessException("Require Role Teacher!");
@@ -74,7 +78,32 @@ public class StudentService {
         List<Classroom> classrooms = classroomRepository.findAllByTeacherId(currentLoginUser.getId());
         List<Long> classId = classrooms.stream().map(Classroom::getId).collect(Collectors.toList());
         Specification<ClassRegistration> specs = getSpecification(params, classId);
-        return classRegistrationRepository.findAll(specs, pageable);
+        Page<ClassRegistration> all = classRegistrationRepository.findAll(specs, pageable);
+        List<ClassRegistration> students = all.getContent();
+        List<StudentDto> studentDtos = new ArrayList<>();
+        for (ClassRegistration classRegistration : students) {
+            List<TutorFeeDetail> tutorFeeDetails = classRegistration.getTutorFeeDetails();
+            Long feeNotSubmitted = 0L;
+            for (TutorFeeDetail feeDetail : tutorFeeDetails) {
+                TutorFee tutorFee = feeDetail.getTutorFee();
+                feeNotSubmitted += (long)tutorFee.getLessonPrice() * feeDetail.getNumberOfAttendedLesson() - feeDetail.getFeeSubmitted();
+            }
+            Classroom classroom = classRegistration.getClassroom();
+            StudentDto studentDto = StudentDto.builder().
+                    id(classRegistration.getId())
+                    .dob(classRegistration.getDob())
+                    .firstName(classRegistration.getFirstName())
+                    .surname(classRegistration.getSurname())
+                    .lastName(classRegistration.getLastName())
+                    .email(classRegistration.getEmail())
+                    .phone(classRegistration.getPhone())
+                    .note(classRegistration.getNote())
+                    .feeNotSubmitted(feeNotSubmitted)
+                    .className(classroom.getClassName())
+                    .build();
+            studentDtos.add(studentDto);
+        }
+        return new PageImpl<>(studentDtos, pageable, all.getTotalElements());
     }
 
     private Specification<ClassRegistration> getSpecification(Map<String, String> params, List<Long> classIds) {
@@ -89,6 +118,8 @@ public class StudentService {
                         predicateList.add(criteriaBuilder.greaterThanOrEqualTo(root.get("createdDate"), LocalDate.parse(value, DateTimeFormatter.ofPattern("yyyy-MM-dd")).atStartOfDay().toInstant(ZoneOffset.UTC)));
                     } else if (StringUtils.equalsIgnoreCase("endCreatedDate", key)) {
                         predicateList.add(criteriaBuilder.lessThanOrEqualTo(root.get("createdDate"), LocalDate.parse(value, DateTimeFormatter.ofPattern("yyyy-MM-dd")).atStartOfDay().toInstant(ZoneOffset.UTC)));
+                    } else if (StringUtils.equalsIgnoreCase("className", key)) {
+                        predicateList.add(criteriaBuilder.like(root.get("classroom").get("className"), "%" + value + "%"));
                     } else {
                         if (value != null && (value.contains("*") || value.contains("%"))) {
                             predicateList.add(criteriaBuilder.like(root.get(key), "%" + value + "%"));
@@ -119,20 +150,22 @@ public class StudentService {
                 .phone(studentDto.getPhone())
                 .address(studentDto.getAddress()).build();
         student.setClassroom(classroom);
-        List<User> users = userService.findAllByEmailIn(List.of(studentDto.getEmail()));
-        Optional<User> existingUser = users.stream().filter(user -> StringUtils.equalsIgnoreCase(user.getEmail(), student.getEmail())).findAny();
-        existingUser.ifPresent(student::setStudent);
-        if (existingUser.isPresent()) {
-            student.setStudent(existingUser.get());
-        } else {
-            if (StringUtils.isNotBlank(student.getEmail())) {
-                try {
-                    userService.createDefaultStudentAccount(student);
-                } catch (Exception e) {
-                    log.error("Failed to create account for email {}", student.getEmail(), e);
+        if (StringUtils.isNotBlank(student.getEmail())) {
+            List<User> users = userService.findAllByEmailIn(List.of(studentDto.getEmail()));
+            Optional<User> existingUser = users.stream().filter(user -> StringUtils.equalsIgnoreCase(user.getEmail(), student.getEmail())).findAny();
+            existingUser.ifPresent(student::setStudent);
+            if (existingUser.isPresent()) {
+                student.setStudent(existingUser.get());
+            } else {
+                if (StringUtils.isNotBlank(student.getEmail())) {
+                    try {
+                        userService.createDefaultStudentAccount(student);
+                    } catch (Exception e) {
+                        log.error("Failed to create account for email {}", student.getEmail(), e);
+                    }
                 }
-            }
 
+            }
         }
         classRegistrationRepository.save(student);
 
@@ -195,13 +228,14 @@ public class StudentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Not found student"));
         try {
             classAttendanceRepository.deleteAllByClassRegistrationId(studentId);
+            // if exist tutorFee -> can not delete
             classRegistrationRepository.deleteById(studentId);
         } catch (Exception e) {
             log.error("Exception during delete operation", e);
             throw new BusinessException("Deletion failed due to an error");
         }
 
-        return new ApiResponse(true,"Success");
+        return new ApiResponse(true, "Success");
     }
 
     public Object updateStudent(StudentDto studentDto) {

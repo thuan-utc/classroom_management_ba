@@ -23,18 +23,36 @@ public class TutorFeeController {
         this.tutorFeeService = tutorFeeService;
     }
 
-//    @GetMapping("/search")
-//    public ResponseEntity<?> search(@RequestParam Map<String, String> params, Pageable pageable) throws Exception {
-//        return ResponseEntity.ok(tutorFeeService.search(params, pageable));
-//    }
+    @GetMapping("/search")
+    public ResponseEntity<?> search(@RequestParam Map<String, String> params, Pageable pageable) throws Exception {
+        return ResponseEntity.ok(tutorFeeService.search(params, pageable));
+    }
 
     @GetMapping
+    public ResponseEntity<?> getTutorFeeDetail(
+            @RequestParam Long tutorFeeId) {
+        return ResponseEntity.ok(tutorFeeService.getTutorFeeDetail(tutorFeeId));
+    }
+
+    @GetMapping("/student-not-submitted-tutor-fee")
+    public ResponseEntity<?> getStudentNotSubmittedTutorFee(@RequestParam Map<String, String> params, Pageable pageable) {
+        return ResponseEntity.ok(tutorFeeService.getStudentNotSubmittedTutorFee(params, pageable));
+    }
+
+    @GetMapping("/calculate")
     public ResponseEntity<?> calculate(
             @RequestParam Long classId,
             @RequestParam Integer month,
             @RequestParam Integer year,
             @RequestParam Integer classSessionPrice) {
-        return ResponseEntity.ok(tutorFeeService.calculateFee(classId, month, year, classSessionPrice));
+        return ResponseEntity.ok(tutorFeeService.calculateNewFee(classId, month, year, classSessionPrice));
+    }
+
+    @GetMapping("/re-calculate")
+    public ResponseEntity<?> reCalculate(
+            @RequestParam Long tutorFeeId,
+            @RequestParam Integer classSessionPrice) {
+        return ResponseEntity.ok(tutorFeeService.reCalculateFee(tutorFeeId, classSessionPrice));
     }
 
     @GetMapping("/{classId}/result")
@@ -77,5 +95,16 @@ public class TutorFeeController {
                                                        @RequestParam Integer year,
                                                        @RequestParam Integer classSessionPrice) {
         return ResponseEntity.ok(tutorFeeService.sendTutorFeeNotificationEmail(classId, month, year, classSessionPrice));
+    }
+
+    @PutMapping("/pay")
+    public ResponseEntity<?> sendTutorFeeNotification( @RequestParam Long tutorFeeDetailId) {
+        return ResponseEntity.ok(tutorFeeService.pay(tutorFeeDetailId));
+    }
+
+    @GetMapping("/fee-for-student")
+    public ResponseEntity<?> getTutorFeeForStudent(
+            @RequestParam Long classId) {
+        return ResponseEntity.ok(tutorFeeService.getTutorFeeForStudent(classId));
     }
 }

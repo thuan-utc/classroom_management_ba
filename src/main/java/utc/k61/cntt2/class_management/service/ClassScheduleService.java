@@ -27,6 +27,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Log4j2
@@ -111,9 +112,26 @@ public class ClassScheduleService {
                 classSchedules.add(classSchedule);
             }
         }
+        User user = userService.getCurrentUserLogin();
+        List<Classroom> classrooms = user.getClassrooms();
+        List<ClassSchedule> existingSchedule = classrooms.stream()
+                .flatMap(classroom1 -> classroom1.getSchedules().stream())
+                .collect(Collectors.toList());
+        for (ClassSchedule classSchedule : classSchedules) {
+            Optional<ClassSchedule> conflictSchedule = existingSchedule.stream()
+                    .filter(existOne -> existOne.getDay().equals(classSchedule.getDay())
+                    && existOne.getPeriodInDay().equals(classSchedule.getPeriodInDay()))
+                    .findFirst();
+            if (conflictSchedule.isPresent()) {
+                String message = "Trùng lịch: "
+                        + conflictSchedule.get().getClassroom().getClassName()
+                        + " - " + classSchedule.getDay()
+                        + " - " + classSchedule.getPeriodInDay().getName();
+                throw new BusinessException(message);
+            }
+        }
         classScheduleRepository.saveAll(classSchedules);
         log.info("Created class schedule for class {}", classroom.getClassName());
-//        tutorFeeService.refreshTutorFee(classroom.getId());
         return new ApiResponse(true, "success");
     }
 
@@ -123,7 +141,6 @@ public class ClassScheduleService {
         if (user.getRole().getName() != RoleName.TEACHER) {
             throw new BusinessException("Missing permission");
         }
-        //todo check user have this document
         List<Classroom> classrooms = user.getClassrooms();
         List<ClassSchedule> schedules = classrooms.stream().flatMap(classroom -> classroom.getSchedules().stream()).collect(Collectors.toList());
         schedules.stream()

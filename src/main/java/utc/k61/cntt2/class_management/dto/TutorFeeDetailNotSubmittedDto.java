@@ -1,20 +1,17 @@
 package utc.k61.cntt2.class_management.dto;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDate;
 import java.util.Date;
 
 @Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-@JsonIgnoreProperties(ignoreUnknown = true)
-public class StudentDto {
+public class TutorFeeDetailNotSubmittedDto {
     private String firstName;
     private String surname;
     private String lastName;
@@ -26,4 +23,6 @@ public class StudentDto {
     private String className;
     private Long feeNotSubmitted;
     private String note;
+    private Integer year;
+    private Integer month;
 }

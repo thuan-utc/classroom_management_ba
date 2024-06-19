@@ -303,7 +303,7 @@ public class ClassroomService {
         if (currentLoginUser.getRole().getName() != RoleName.STUDENT) {
             throw new BusinessException("Require Role Student!");
         }
-        List<ClassRegistration> classRegistrations = classRegistrationRepository.findAllByEmail(currentLoginUser.getEmail());
+        List<ClassRegistration> classRegistrations = classRegistrationRepository.findAllByStudentId(currentLoginUser.getId());
         List<Classroom> classrooms = classRegistrations.stream().map(ClassRegistration::getClassroom).collect(Collectors.toList());
         List<Long> classIds = classrooms.stream().map(Classroom::getId).collect(Collectors.toList());
         if (classIds.isEmpty()) {
