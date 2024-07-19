@@ -23,7 +23,7 @@ public class ClassAttendanceController {
     public ClassAttendanceController(ClassAttendanceService classAttendanceService) {
         this.classAttendanceService = classAttendanceService;
     }
-// ttest git push
+ // test
     @GetMapping("/{scheduleId}")
     public Page<?> fetchAllClasAttendance(@PathVariable Long scheduleId) {
         return classAttendanceService.fetchClassAttendance(scheduleId);
