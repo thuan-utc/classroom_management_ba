@@ -4,7 +4,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import utc.k61.cntt2.class_management.dto.ClassAttendanceDto;
 import utc.k61.cntt2.class_management.dto.ExamScoreDto;
 import utc.k61.cntt2.class_management.dto.NewExamRequest;
 import utc.k61.cntt2.class_management.service.ExamScoreService;
@@ -30,6 +29,12 @@ public class ExamScoreController {
     @PostMapping
     public ResponseEntity<?> createExam(@Valid @RequestBody NewExamRequest request) {
         return ResponseEntity.ok(examScoreService.createNewExam(request));
+    }
+
+    @GetMapping
+    public ResponseEntity<?> getExamScore(@RequestParam Long classRegistrationId) {
+
+        return ResponseEntity.ok( examScoreService.getExamScore(classRegistrationId));
     }
 
     @GetMapping("/{classId}/exam")

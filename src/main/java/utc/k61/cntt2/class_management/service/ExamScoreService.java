@@ -26,6 +26,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -91,13 +92,13 @@ public class ExamScoreService {
 
         List<ExamScoreDto> examScoreDtos = new ArrayList<>();
         for (ExamScore examScore : examScoreList) {
-            ExamScoreDto examScoreDto = new ExamScoreDto();
-            examScoreDto.setId(examScore.getId());
             ClassRegistration student = examScore.getClassRegistration();
-            examScoreDto.setName(student.getFirstName() + " " + student.getSurname() + " " + student.getLastName());
-            examScoreDto.setEmail(student.getEmail());
-            examScoreDto.setScore(examScore.getScore());
-
+            ExamScoreDto examScoreDto = ExamScoreDto.builder()
+                    .id(examScore.getId())
+                    .name(student.getFirstName() + " " + student.getSurname() + " " + student.getLastName())
+                    .email(student.getEmail())
+                    .score(examScore.getScore())
+                    .build();
             examScoreDtos.add(examScoreDto);
         }
 
@@ -109,7 +110,7 @@ public class ExamScoreService {
         List<ExamScore> examScoreList = examScoreRepository.findAllByIdIn(examScoreIds);
         for (ExamScoreDto examScoreDto : examScoreDtos) {
             if (examScoreDto.getScore() != null) {
-                Optional<ExamScore> examScore = examScoreList.stream().filter(a -> examScoreDto.getId() == a.getId()).findFirst();
+                Optional<ExamScore> examScore = examScoreList.stream().filter(a -> Objects.equals(examScoreDto.getId(), a.getId())).findFirst();
                 examScore.ifPresent(classAttendance -> classAttendance.setScore(examScoreDto.getScore()));
             }
         }
@@ -122,6 +123,27 @@ public class ExamScoreService {
         Classroom classroom = classroomService.getById(classId);
         return new PageImpl<>(classroom.getExams());
     }
+
+
+    public Object getExamScore(Long classRegistrationId){
+        User currentLoginUser = userService.getCurrentUserLogin();
+        if (currentLoginUser.getRole().getName() != RoleName.TEACHER) {
+            throw new BusinessException("Require Role Student!");
+        }
+        List<ExamScore> examScores = examScoreRepository.findAllByClassRegistrationId(classRegistrationId);
+        List<ExamScoreDto> resultList = new ArrayList<>();
+
+        for (ExamScore examScore: examScores) {
+            ExamScoreDto examScoreDto = ExamScoreDto.builder()
+                    .examName(examScore.getExam().getName())
+                    .score(examScore.getScore())
+                    .dob(examScore.getCreatedBy())
+                    .build();
+            resultList.add(examScoreDto);
+        }
+        return new PageImpl<>(resultList);
+    }
+
 
     public Object getStudentExamResult(Long classId) {
         User user = userService.getCurrentUserLogin();
