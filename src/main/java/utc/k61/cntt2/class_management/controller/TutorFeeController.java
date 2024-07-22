@@ -107,4 +107,9 @@ public class TutorFeeController {
             @RequestParam Long classId) {
         return ResponseEntity.ok(tutorFeeService.getTutorFeeForStudent(classId));
     }
+
+    @GetMapping("/test")
+    public String testGetTutorFee(){
+        return  "";
+    }
 }

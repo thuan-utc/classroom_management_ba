@@ -9,4 +9,6 @@ import java.util.List;
 @Repository
 public interface ExamScoreRepository extends JpaRepository<ExamScore, Long> {
     List<ExamScore> findAllByIdIn(List<Long> examScoreIds);
+    List<ExamScore> findAllByClassRegistrationId(Long classRegistrationId);
+
 }
