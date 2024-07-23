@@ -15,20 +15,16 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import utc.k61.cntt2.class_management.domain.ClassRegistration;
-import utc.k61.cntt2.class_management.domain.ClassSchedule;
 import utc.k61.cntt2.class_management.domain.Classroom;
 import utc.k61.cntt2.class_management.domain.User;
 import utc.k61.cntt2.class_management.dto.ApiResponse;
-import utc.k61.cntt2.class_management.dto.ClassPeriodInWeek;
+import utc.k61.cntt2.class_management.dto.StudentDto;
 import utc.k61.cntt2.class_management.dto.classroom.ClassroomDto;
 import utc.k61.cntt2.class_management.dto.classroom.NewClassRequest;
-import utc.k61.cntt2.class_management.dto.StudentDto;
-import utc.k61.cntt2.class_management.enumeration.ClassPeriod;
 import utc.k61.cntt2.class_management.enumeration.RoleName;
 import utc.k61.cntt2.class_management.exception.BusinessException;
 import utc.k61.cntt2.class_management.exception.ResourceNotFoundException;
 import utc.k61.cntt2.class_management.repository.ClassRegistrationRepository;
-import utc.k61.cntt2.class_management.repository.ClassScheduleRepository;
 import utc.k61.cntt2.class_management.repository.ClassroomRepository;
 import utc.k61.cntt2.class_management.repository.UserRepository;
 import utc.k61.cntt2.class_management.security.SecurityUtils;
@@ -38,12 +34,10 @@ import javax.persistence.criteria.Predicate;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -57,7 +51,6 @@ public class ClassroomService {
     private final UserRepository userRepository;
     private final ClassRegistrationRepository classRegistrationRepository;
     private final UserService userService;
-    private final ClassScheduleRepository classScheduleRepository;
     private final String tempFolder;
 
     @Autowired
@@ -65,12 +58,11 @@ public class ClassroomService {
                             UserRepository userRepository,
                             ClassRegistrationRepository classRegistrationRepository,
                             UserService userService,
-                            ClassScheduleRepository classScheduleRepository, @Value("${app.temp}") String tempFolder) {
+                            @Value("${app.temp}") String tempFolder) {
         this.classroomRepository = classroomRepository;
         this.userRepository = userRepository;
         this.classRegistrationRepository = classRegistrationRepository;
         this.userService = userService;
-        this.classScheduleRepository = classScheduleRepository;
         this.tempFolder = tempFolder;
     }
 

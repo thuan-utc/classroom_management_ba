@@ -2,10 +2,6 @@ package utc.k61.cntt2.class_management.service;
 
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -18,16 +14,11 @@ import utc.k61.cntt2.class_management.dto.ApiResponse;
 import utc.k61.cntt2.class_management.dto.StudentDto;
 import utc.k61.cntt2.class_management.enumeration.RoleName;
 import utc.k61.cntt2.class_management.exception.BusinessException;
-import utc.k61.cntt2.class_management.exception.ResourceNotFoundException;
-import utc.k61.cntt2.class_management.repository.ClassAttendanceRepository;
 import utc.k61.cntt2.class_management.repository.ClassRegistrationRepository;
 import utc.k61.cntt2.class_management.repository.ClassroomRepository;
-import utc.k61.cntt2.class_management.repository.TutorFeeDetailRepository;
 
+import javax.persistence.criteria.JoinType;
 import javax.persistence.criteria.Predicate;
-import javax.transaction.Transactional;
-import java.io.FileOutputStream;
-import java.io.IOException;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -140,6 +131,76 @@ public class StudentService {
         });
     }
 
+    public void getAllStudent(Map<String, String> params, Pageable pageable) {
+        User currentLoginUser = userService.getCurrentUserLogin();
+        if (currentLoginUser == null || !currentLoginUser.getRole().getName().equals(RoleName.TEACHER)) {
+            throw new BusinessException("Require Role Teacher!");
+        }
+
+        List<Classroom> classrooms = classroomRepository.findAllByTeacherId(currentLoginUser.getId());
+        List<Long> classroomIds = classrooms.stream().map(Classroom::getId).collect(Collectors.toList());
+        Specification<ClassRegistration> spec = getStudentSpecification(params)
+                .and((root, query, cb) -> root.get("classroom").get("id").in(classroomIds));
+
+        Page<ClassRegistration> all = classRegistrationRepository.findAll(spec, pageable);
+        List<ClassRegistration> classRegistrations = all.getContent();
+
+        List<StudentDto> studentDtos = new ArrayList<>();
+        for (ClassRegistration classRegistration : classRegistrations) {
+            List<TutorFeeDetail> tutorFeeDetails = classRegistration.getTutorFeeDetails();
+            long feeNotSubmitted = 0L;
+            for (TutorFeeDetail feeDetail : tutorFeeDetails) {
+                TutorFee tutorFee = feeDetail.getTutorFee();
+                feeNotSubmitted += (long)tutorFee.getLessonPrice() * feeDetail.getNumberOfAttendedLesson() - feeDetail.getFeeSubmitted();
+            }
+            Classroom classroom = classRegistration.getClassroom();
+
+            StudentDto studentDto = StudentDto.builder()
+                    .id(classRegistration.getId())
+                    .dob(classRegistration.getDob())
+                    .firstName(classRegistration.getFirstName())
+                    .surname(classRegistration.getSurname())
+                    .lastName(classRegistration.getLastName())
+                    .email(classRegistration.getEmail())
+                    .phone(classRegistration.getPhone())
+                    .note(classRegistration.getNote())
+                    .feeNotSubmitted(feeNotSubmitted)
+                    .className(classroom.getClassName())
+                    .build();
+            studentDtos.add(studentDto);
+        }
+
+        new PageImpl<>(studentDtos, pageable, all.getTotalElements());
+    }
+
+    public Specification<ClassRegistration> getStudentSpecification(Map<String, String> searchCriteria) {
+        return (root, query, cb) -> {
+            Predicate predicate = cb.conjunction();
+
+            if (searchCriteria.get("firstName") != null && !searchCriteria.get("firstName").isEmpty()) {
+                predicate = cb.and(predicate, cb.like(root.get("firstName"), "%" + searchCriteria.get("firstName") + "%"));
+            }
+            if (searchCriteria.get("surname") != null && !searchCriteria.get("surname").isEmpty()) {
+                predicate = cb.and(predicate, cb.like(root.get("surname"), "%" + searchCriteria.get("surname") + "%"));
+            }
+            if (searchCriteria.get("lastName") != null && !searchCriteria.get("lastName").isEmpty()) {
+                predicate = cb.and(predicate, cb.like(root.get("lastName"), "%" + searchCriteria.get("lastName") + "%"));
+            }
+            if (searchCriteria.get("email") != null && !searchCriteria.get("email").isEmpty()) {
+                predicate = cb.and(predicate, cb.like(root.get("email"), "%" + searchCriteria.get("email") + "%"));
+            }
+            if (searchCriteria.get("phone") != null && !searchCriteria.get("phone").isEmpty()) {
+                predicate = cb.and(predicate, cb.like(root.get("phone"), "%" + searchCriteria.get("phone") + "%"));
+            }
+            if (searchCriteria.get("className") != null && !searchCriteria.get("className").isEmpty()) {
+                var classroomJoin = root.join("classroom", JoinType.INNER);
+                predicate = cb.and(predicate, cb.like(classroomJoin.get("className"), "%" + searchCriteria.get("className") + "%"));
+            }
+
+            return predicate;
+        };
+    }
+
     public Object addStudentForClass(StudentDto studentDto, Long classId) {
         Classroom classroom = classroomService.getById(classId);
         ClassRegistration student = ClassRegistration.newBuilder()
@@ -172,87 +233,29 @@ public class StudentService {
         return new ApiResponse(true, "Success");
     }
 
-    public String extractListStudent(Long classId) {
-        List<ClassRegistration> students = getAllStudentForClass(classId);
-        String fileName = tempFolder + "/" + "students_class_" + classId + ".xlsx";
+    public StudentDto getStudentDetail(Long studentId) {
+        ClassRegistration classRegistration = classRegistrationRepository.findById(studentId)
+                .orElseThrow(() -> new IllegalArgumentException("Student not found with id: " + studentId));
 
-        Workbook workbook = new XSSFWorkbook();
-        try {
-            Sheet sheet = workbook.createSheet("Students");
-
-            // Create header row
-            Row headerRow = sheet.createRow(0);
-            headerRow.createCell(0).setCellValue("ID");
-            headerRow.createCell(1).setCellValue("Tên Họ");
-            headerRow.createCell(2).setCellValue("Tên Đệm");
-            headerRow.createCell(3).setCellValue("Tên");
-            headerRow.createCell(4).setCellValue("Email");
-            headerRow.createCell(5).setCellValue("Số điện thoại");
-            headerRow.createCell(6).setCellValue("Địa chỉ");
-
-            // Create data rows
-            int rowIndex = 1;
-            for (ClassRegistration student : students) {
-                Row row = sheet.createRow(rowIndex++);
-                row.createCell(0).setCellValue(student.getId());
-                row.createCell(1).setCellValue(student.getFirstName());
-                row.createCell(2).setCellValue(student.getSurname());
-                row.createCell(3).setCellValue(student.getLastName());
-                row.createCell(4).setCellValue(student.getEmail());
-                row.createCell(5).setCellValue(student.getPhone());
-                row.createCell(6).setCellValue(student.getAddress());
-            }
-
-            // Write the output to a file
-            try (FileOutputStream fileOut = new FileOutputStream(fileName)) {
-                workbook.write(fileOut);
-            }
-        } catch (IOException e) {
-            log.error("Error while writing XLSX file", e);
-            return null;
+        List<TutorFeeDetail> tutorFeeDetails = classRegistration.getTutorFeeDetails();
+        long feeNotSubmitted = 0L;
+        for (TutorFeeDetail feeDetail : tutorFeeDetails) {
+            TutorFee tutorFee = feeDetail.getTutorFee();
+            feeNotSubmitted += (long)tutorFee.getLessonPrice() * feeDetail.getNumberOfAttendedLesson() - feeDetail.getFeeSubmitted();
         }
+        Classroom classroom = classRegistration.getClassroom();
 
-        return fileName;
-    }
-
-    @Transactional
-    public ApiResponse deleteStudent(Long studentId) {
-        User user = userService.getCurrentUserLogin();
-        if (user.getRole().getName() != RoleName.TEACHER) {
-            throw new BusinessException("Missing permission");
-        }
-        List<Classroom> classrooms = user.getClassrooms();
-        List<ClassRegistration> classRegistrations = classrooms.stream().flatMap(classroom -> classroom.getClassRegistrations().stream()).collect(Collectors.toList());
-        classRegistrations.stream()
-                .filter(student -> student.getId().equals(studentId)).findFirst()
-                .orElseThrow(() -> new ResourceNotFoundException("Not found student"));
-        try {
-            classAttendanceRepository.deleteAllByClassRegistrationId(studentId);
-            // if exist tutorFee -> can not delete
-            classRegistrationRepository.deleteById(studentId);
-        } catch (Exception e) {
-            log.error("Exception during delete operation", e);
-            throw new BusinessException("Deletion failed due to an error");
-        }
-
-        return new ApiResponse(true, "Success");
-    }
-
-    public Object updateStudent(StudentDto studentDto) {
-        ClassRegistration existingStudent = classRegistrationRepository.findById(studentDto.getId())
-                .orElseThrow(() -> new IllegalArgumentException("Student not found with id: " + studentDto.getDob()));
-
-        // Update the fields
-        existingStudent.setFirstName(studentDto.getFirstName());
-        existingStudent.setSurname(studentDto.getSurname());
-        existingStudent.setLastName(studentDto.getLastName());
-        existingStudent.setEmail(studentDto.getEmail());
-        existingStudent.setPhone(studentDto.getPhone());
-        existingStudent.setAddress(studentDto.getAddress());
-        existingStudent.setDob(studentDto.getDob());
-
-        classRegistrationRepository.save(existingStudent);
-
-        return "Success";
+        return StudentDto.builder().
+                    id(studentId)
+                    .dob(classRegistration.getDob())
+                    .firstName(classRegistration.getFirstName())
+                    .surname(classRegistration.getSurname())
+                    .lastName(classRegistration.getLastName())
+                    .email(classRegistration.getEmail())
+                    .phone(classRegistration.getPhone())
+                    .note(classRegistration.getNote())
+                    .feeNotSubmitted(feeNotSubmitted)
+                    .className(classroom.getClassName())
+                    .build();
     }
 }
